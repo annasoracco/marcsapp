@@ -600,6 +600,8 @@ async function runLive(universe) {
     t[s] = entry;
   }
   if (!Object.keys(t).length) throw new Error("no quotes and no cached quotes");
+  // "Prices as of" follows the S&P 500 ETF's regular-session quote time.
+  if (t.SPY?.t) maxQuoteTime = t.SPY.t;
 
   // 5) Persist cache, then write the output folder.
   const market = { asOf: now.toISOString(), t };

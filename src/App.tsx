@@ -59,9 +59,9 @@ function Banners() {
       )}
       {state.sampleMode && (
         <div className="banner sample" role="status">
-          <span>You’re exploring sample accounts and calls (all made up).</span>
+          <span>Showing made-up sample data</span>
           <button type="button" className="btn ghost small" onClick={() => dispatch({ type: "clearSample" })}>
-            Clear sample data
+            Clear samples
           </button>
         </div>
       )}

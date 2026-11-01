@@ -59,7 +59,7 @@ export function TodayView() {
       <Card id="idx" title="Major indices">
         <ul className="idx-grid">
           {meta.indices
-            .filter((s) => market.t[s])
+            .filter((s) => market.t[s] && s !== "^VIX")
             .map((s) => (
               <li key={s} className="idx">
                 <span className="idx-name">{INDEX_NAMES[s] ?? s}</span>
@@ -68,6 +68,11 @@ export function TodayView() {
               </li>
             ))}
         </ul>
+        {market.t["^VIX"] && (
+          <p className="fine">
+            VIX (the fear gauge) {indexLevel(market.t["^VIX"].p)}, <Change value={market.t["^VIX"].c} label="VIX" /> today
+          </p>
+        )}
       </Card>
 
       <Card id="heat" title="Sector heat map">

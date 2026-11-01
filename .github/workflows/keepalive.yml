@@ -1,0 +1,58 @@
+name: Keep data refresh running
+
+# GitHub pauses scheduled workflows in public repos after 60 days without repository activity.
+# Nobody commits here, so this re-enables the schedules every week and, once main has been
+# quiet for 40 days, adds an empty commit so the data keeps refreshing on its own.
+# Uses only the built-in GITHUB_TOKEN; no secrets needed.
+
+on:
+  schedule:
+    - cron: "41 14 * * 1" # Mondays
+  workflow_dispatch:
+    inputs:
+      force_commit:
+        description: "Add the empty keepalive commit now, even if main had recent activity"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Make sure the scheduled workflows are enabled
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for wf in deploy.yml keepalive.yml; do
+            gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/$wf/enable"
+            echo "$wf: $(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$wf" --jq .state)"
+          done
+
+      - name: Add an empty commit if main has been quiet for 40 days
+        env:
+          FORCE: ${{ inputs.force_commit || false }}
+          BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          days=$(( ( $(date +%s) - $(git log -1 --format=%ct) ) / 86400 ))
+          echo "Last commit on $BRANCH was $days days ago."
+          if [ "$days" -lt 40 ] && [ "$FORCE" != "true" ]; then
+            echo "Recent enough; no commit needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "Keep the scheduled data refresh active"
+          git push origin "HEAD:refs/heads/$BRANCH"

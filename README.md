@@ -30,16 +30,17 @@ It then opens full-screen like a regular app and works offline with the last pri
 There is no server. A scheduled GitHub Actions workflow (`.github/workflows/deploy.yml`) fetches data and redeploys the static site to GitHub Pages:
 
 - **When:** about every 30 minutes on weekdays while US markets are open, once after the close, once in the evening (for show headlines), on every push to `main`, and on demand (Actions > Data and deploy > Run workflow).
+- **Keeps running on its own:** GitHub pauses schedules in public repos after 60 days without activity. `.github/workflows/keepalive.yml` runs every Monday, re-enables the schedules, and adds an empty commit once `main` has been quiet for 40 days. It uses only the built-in token.
 - **What:** `scripts/fetch-data.mjs` uses the [`yahoo-finance2`](https://github.com/gadicc/yahoo-finance2) package (no API key) to write static JSON into the site:
   - `data/market.json`: latest price, daily % change, type, sector, and next earnings date for every covered ticker (every run).
   - `data/history/<TICKER>.json`: about 2 years of daily adjusted closes in a compact format, loaded on demand (refreshed once per trading day).
   - `data/funds.json`: top holdings and sector weights for ETFs and mutual funds, used for look-through (refreshed weekly).
-  - `data/news.json`: Mad Money headlines from CNBC's official RSS feed.
+  - `data/news.json`: Mad Money headlines from CNBC's official RSS feed, the stocks CNBC tagged in each article, and how each has moved since the segment aired. Tagged stocks stay covered for a year.
 - **Resilience:** a failed fetch never breaks the deploy. The job falls back to the last good data (GitHub Actions cache, then the currently deployed site's data). Only as a last resort does it publish made-up sample prices, and the app then shows a clear "sample market data" banner. The header always shows "Prices as of …".
 
 ### Coverage, and how to add tickers
 
-Covered: S&P 500, Nasdaq-100, and Dow 30 stocks; major index, sector, bond, international, and thematic ETFs; common 401(k) mutual funds and Vanguard / Fidelity target-date funds; plus popular names in `config/extra-tickers.json` (about 820 tickers in total).
+Covered: S&P 500, S&P MidCap 400, S&P SmallCap 600, Nasdaq-100, and Dow 30 stocks; stocks CNBC tags in Mad Money segments; major index, sector, bond, international, and thematic ETFs; common 401(k) mutual funds and Vanguard / Fidelity target-date funds; plus popular names in `config/extra-tickers.json` (about 1,800 tickers in total).
 
 - **To add a ticker:** edit [`config/extra-tickers.json`](config/extra-tickers.json), add the symbol to the `tickers` list (Yahoo style, for example `BRK-B`), and commit to `main`. The next run picks it up and detects the type, name, and sector automatically.
 - **To refresh index membership:** run `npm run universe` and commit `config/universe.json` (it reads the constituent tables on Wikipedia and the curated ETF and fund lists in `scripts/build-universe.mjs`).

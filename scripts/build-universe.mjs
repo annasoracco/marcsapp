@@ -1,0 +1,130 @@
+// Rebuilds config/universe.json: index constituents from Wikipedia plus curated
+// ETF, mutual fund, and index lists. Run occasionally with `npm run universe`
+// and commit the result. The data job reads the committed file, so a Wikipedia
+// outage never affects the live app.
+import { writeFile } from "node:fs/promises";
+import { parse } from "node-html-parser";
+
+const UA = {
+  "user-agent": "marcsapp-universe-builder/1.0 (https://github.com/annasoracco/marcsapp)",
+};
+
+const INDICES = [
+  ["^GSPC", "S&P 500"],
+  ["^IXIC", "Nasdaq Composite"],
+  ["^DJI", "Dow Jones Industrial Average"],
+  ["^RUT", "Russell 2000"],
+  ["^VIX", "CBOE Volatility Index"],
+];
+
+const SECTOR_ETFS = ["XLK", "XLF", "XLV", "XLY", "XLP", "XLE", "XLI", "XLB", "XLU", "XLRE", "XLC"];
+
+const ETFS = [
+  // Broad US
+  "SPY", "VOO", "IVV", "SPLG", "VTI", "ITOT", "SCHB", "SCHX", "VV", "QQQ", "QQQM", "DIA", "IWM", "IWB",
+  "IWV", "RSP", "MDY", "IJH", "IJR", "VO", "VB", "VXF",
+  // Style, dividend, factor
+  "VUG", "VTV", "SCHG", "SCHD", "VIG", "VYM", "DGRO", "SPYG", "SPYV", "IWF", "IWD", "MGK", "JEPI", "JEPQ",
+  "MTUM", "QUAL", "USMV", "COWZ", "NOBL", "DVY",
+  // Sector and thematic
+  ...SECTOR_ETFS, "SMH", "SOXX", "VGT", "IGV", "XBI", "IBB", "VHT", "KRE", "KBE", "ITA", "XAR", "ITB",
+  "XHB", "VNQ", "GDX", "TAN", "ICLN", "CIBR", "ARKK", "XOP", "XME", "XRT", "BOTZ", "URA",
+  // International
+  "VXUS", "VEA", "VWO", "IEFA", "IEMG", "EFA", "EEM", "ACWI", "VT", "IXUS", "SCHF", "VGK", "EWJ",
+  "FXI", "INDA", "EWZ",
+  // Bonds and cash-like
+  "BND", "AGG", "BNDX", "TLT", "IEF", "SHY", "SGOV", "BIL", "LQD", "HYG", "JNK", "TIP", "VTIP", "MUB",
+  "VGIT", "VGSH", "VCIT", "SCHZ", "JPST", "USFR",
+  // Commodities, crypto, leveraged
+  "GLD", "IAU", "SLV", "USO", "DBC", "IBIT", "FBTC", "ETHA", "TQQQ", "SQQQ", "SOXL", "SPXL", "SH",
+];
+
+const MUTUAL_FUNDS = [
+  // Vanguard index and active
+  "VFIAX", "VFINX", "VTSAX", "VTSMX", "VTIAX", "VBTLX", "VBIAX", "VTABX", "VIGAX", "VIMAX", "VSMAX",
+  "VEXAX", "VSIAX", "VFTAX", "VDIGX", "VWELX", "VWENX", "VWINX", "VGSLX", "VPMCX", "VWUSX", "VHCAX",
+  "VWIGX", "VTMGX", "VSGAX",
+  // Vanguard Target Retirement
+  "VTINX", "VTWNX", "VTTVX", "VTHRX", "VTTHX", "VFORX", "VTIVX", "VFIFX", "VFFVX", "VTTSX", "VLXVX",
+  "VSVNX",
+  // Fidelity index and active
+  "FXAIX", "FSKAX", "FTIHX", "FXNAX", "FZROX", "FZILX", "FNILX", "FSPSX", "FSMDX", "FSSNX", "FCNTX",
+  "FBGRX", "FDGRX", "FMAGX", "FBALX", "FLPSX", "FOCPX", "FSELX", "FSPTX", "FUAMX", "FIPDX", "FSRNX",
+  // Fidelity Freedom (active) and Freedom Index target-date funds
+  "FFFDX", "FFTWX", "FFFEX", "FFTHX", "FFFFX", "FFFGX", "FFFHX", "FDEEX", "FDKVX", "FFSFX",
+  "FPIFX", "FQIFX", "FXIFX", "FIHFX", "FBIFX", "FIOFX", "FIPFX", "FDEWX", "FDKLX",
+  // Schwab, T. Rowe Price, American Funds, and other 401(k) staples
+  "SWPPX", "SWTSX", "SWISX", "SWAGX", "SWLGX", "TRBCX", "PRGFX", "PRWCX", "PRNHX", "AGTHX", "AIVSX",
+  "ANWPX", "AMCPX", "ABALX", "AWSHX", "AEPGX", "DODGX", "DODIX", "PTTRX", "PIMIX", "MWTRX", "OAKMX",
+  // Money market funds (treated as cash)
+  "SPAXX", "FDRXX", "VMFXX", "SWVXX",
+];
+
+function clean(text) {
+  return text.replace(/\[[^\]]*\]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function toYahoo(symbol) {
+  return clean(symbol).toUpperCase().replace(/\./g, "-");
+}
+
+async function table(url) {
+  const res = await fetch(url, { headers: UA });
+  if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`);
+  const root = parse(await res.text());
+  const t = root.querySelector("table#constituents");
+  if (!t) throw new Error(`${url}: constituents table not found`);
+  const rows = t.querySelectorAll("tr");
+  const headers = rows[0].querySelectorAll("th").map((h) => clean(h.text).toLowerCase());
+  return rows.slice(1).map((r) => {
+    const cells = r.querySelectorAll("td,th").map((c) => clean(c.text));
+    return Object.fromEntries(headers.map((h, i) => [h, cells[i] ?? ""]));
+  });
+}
+
+const sp = await table("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies");
+const ndx = await table("https://en.wikipedia.org/wiki/List_of_NASDAQ-100_companies");
+const dow = await table("https://en.wikipedia.org/wiki/List_of_Dow_Jones_Industrial_Average_companies");
+
+const stocks = new Map();
+function addStock(symbol, name, sector, group) {
+  const s = toYahoo(symbol);
+  if (!s) return;
+  const prev = stocks.get(s) ?? { s, n: name, g: [] };
+  if (!prev.sector && sector) prev.sector = sector;
+  if (!prev.n && name) prev.n = name;
+  if (!prev.g.includes(group)) prev.g.push(group);
+  stocks.set(s, prev);
+}
+for (const r of sp) addStock(r["symbol"], r["security"], r["gics sector"], "sp500");
+for (const r of ndx) addStock(r["ticker"], r["company"], undefined, "ndx100");
+for (const r of dow) addStock(r["symbol"], r["company"], undefined, "dow30");
+
+if (stocks.size < 500) throw new Error(`Only ${stocks.size} stocks parsed; refusing to write.`);
+
+const universe = {
+  _about:
+    "Coverage universe for the data job. Generated by `npm run universe` (Wikipedia constituents + curated lists in scripts/build-universe.mjs). To add your own tickers, edit config/extra-tickers.json instead.",
+  generatedOn: new Date().toISOString().slice(0, 10),
+  indices: INDICES.map(([s, n]) => ({ s, n })),
+  sectorEtfs: SECTOR_ETFS,
+  stocks: [...stocks.values()].sort((a, b) => a.s.localeCompare(b.s)),
+  etfs: [...new Set(ETFS)],
+  mutualFunds: [...new Set(MUTUAL_FUNDS)],
+};
+
+// One entry per line keeps the committed file readable and diffs small.
+const json =
+  "{\n" +
+  Object.entries(universe)
+    .map(([k, v]) =>
+      Array.isArray(v)
+        ? `  ${JSON.stringify(k)}: [\n${v.map((x) => `    ${JSON.stringify(x)}`).join(",\n")}\n  ]`
+        : `  ${JSON.stringify(k)}: ${JSON.stringify(v)}`,
+    )
+    .join(",\n") +
+  "\n}\n";
+await writeFile(new URL("../config/universe.json", import.meta.url), json);
+console.log(
+  `Wrote config/universe.json: ${universe.stocks.length} stocks, ${universe.etfs.length} ETFs, ${universe.mutualFunds.length} mutual funds, ${universe.indices.length} indices.`,
+);

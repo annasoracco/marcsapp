@@ -1,0 +1,11 @@
+{
+  "_howto": "Add any US-listed stock, ETF, or mutual fund ticker to the \"tickers\" list (Yahoo-style symbols, e.g. BRK-B). Commit to main and the next data run picks it up automatically. Type, name, and sector are detected for you.",
+  "tickers": [
+    "ACHR", "AFRM", "ALAB", "AMC", "APP", "ARM", "ASML", "ASTS", "AZN", "BABA", "BAM", "BBAI", "BIRK",
+    "BN", "BP", "BTI", "CAVA", "CELH", "CLS", "CNI", "COIN", "CP", "CPNG", "CRCL", "CRDO", "CRWV", "CVNA",
+    "DEO", "DKNG", "DUOL", "ELF", "ENB", "GME", "GSK", "HIMS", "HOOD", "IONQ", "LCID", "LYFT", "MELI",
+    "MSTR", "NBIS", "NET", "NIO", "NU", "NVO", "NVS", "OKLO", "ONON", "PATH", "PINS", "QBTS", "RBLX",
+    "RDDT", "RGTI", "RIVN", "RKLB", "ROKU", "RY", "S", "SAP", "SE", "SHEL", "SHOP", "SMR", "SNAP", "SNOW",
+    "SOFI", "SONY", "SOUN", "SPOT", "TD", "TEAM", "TM", "TOST", "TSM", "U", "UL", "UPST", "VRT", "ZS"
+  ]
+}

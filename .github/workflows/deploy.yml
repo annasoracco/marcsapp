@@ -1,0 +1,88 @@
+name: Data and deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_heavy:
+        description: "Refetch all price history and fund holdings"
+        type: boolean
+        default: false
+  schedule:
+    # About every 30 minutes while US markets are open (covers both EDT and EST), weekdays.
+    - cron: "*/30 13-21 * * 1-5"
+    # Once after the close.
+    - cron: "20 22 * * 1-5"
+    # Evening refresh for Mad Money headlines after the show airs.
+    - cron: "30 1 * * 2-6"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Restore market data cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .data-cache
+          key: market-data-${{ github.run_id }}
+          restore-keys: market-data-
+
+      - name: Fetch market data (never fails the deploy)
+        id: data
+        continue-on-error: true
+        timeout-minutes: 15
+        run: node scripts/fetch-data.mjs --out public/data --cache .data-cache ${{ inputs.force_heavy && '--force-heavy' || '' }}
+
+      - name: Make sure some data exists
+        run: |
+          if [ ! -f public/data/meta.json ]; then
+            echo "::warning::No market data was produced; deploying clearly-labelled sample data."
+            node scripts/fetch-data.mjs --out public/data --sample
+          fi
+          node -e "const m=require('./public/data/meta.json'); console.log('data source:', m.source, '| tickers:', m.counts.tickers, '| prices as of', m.quotesAsOf)"
+
+      - name: Save market data cache
+        if: steps.data.outputs.heavy_refreshed == 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: .data-cache
+          key: market-data-${{ github.run_id }}
+
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

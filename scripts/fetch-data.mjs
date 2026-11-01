@@ -470,12 +470,14 @@ async function runLive(universe) {
   // 2) Heavy data, once per close (or when new tickers appear).
   const historyFiles = new Set((await readdir(path.join(CACHE, "history")).catch(() => [])).map((f) => f));
   const knownSymbols = symbols.filter((s) => quotes[s] || prevMarket.t[s]);
-  const missingHistory = knownSymbols.filter((s) => !historyFiles.has(fileFor(s)));
+  // Money market funds sit at $1 and have no chart history.
+  const historySymbols = knownSymbols.filter((s) => (KIND[quotes[s]?.quoteType] ?? prevMarket.t[s]?.k) !== "m");
+  const missingHistory = historySymbols.filter((s) => !historyFiles.has(fileFor(s)));
   const historyStale = FORCE_HEAVY || heavyIsStale(heavy.historyAt, now);
   let heavyRefreshed = false;
 
   if (quotesOk && (historyStale || missingHistory.length)) {
-    const targets = historyStale ? knownSymbols : missingHistory;
+    const targets = historyStale ? historySymbols : missingHistory;
     log(`history: fetching ${targets.length} tickers (${historyStale ? "daily refresh" : "new tickers"})`);
     let ok = 0;
     let fail = 0;

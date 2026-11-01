@@ -309,10 +309,87 @@ async function fetchNews() {
       return { title: get("title"), link: get("link"), date: Number.isNaN(date.getTime()) ? null : date.toISOString() };
     })
     .filter((i) => i.title && i.date && /^https:\/\/www\.cnbc\.com\//.test(i.link))
-    .slice(0, 15);
+    .slice(0, 30);
   if (!items.length) throw new Error("RSS had no items");
   return items;
 }
+
+/** The stocks CNBC itself tagged on a Mad Money article ("Primary" or "Mentioned"). */
+async function fetchArticleTickers(link) {
+  const res = await fetch(link, { headers: { "user-agent": UA }, signal: AbortSignal.timeout(20000) });
+  if (!res.ok) throw new Error(`article HTTP ${res.status}`);
+  const m = (await res.text()).match(/"tickerSymbols":(\[[^\]]*\])/);
+  if (!m) return [];
+  let tags;
+  try {
+    tags = JSON.parse(m[1]);
+  } catch {
+    return [];
+  }
+  const seen = new Set();
+  const out = [];
+  for (const t of Array.isArray(tags) ? tags : []) {
+    // Skips CNBC-only codes such as ".SPX" index symbols.
+    if (typeof t?.symbol !== "string" || !/^[A-Z][A-Z0-9.-]{0,9}$/.test(t.symbol)) continue;
+    const s = normalizeSymbol(t.symbol);
+    if (seen.has(s)) continue;
+    seen.add(s);
+    out.push({ s, n: cleanName(t.tagName) ?? "", ...(t.category === "Primary" ? { p: 1 } : {}) });
+  }
+  return out;
+}
+
+/** Trading day whose close a segment is measured from: the show airs after the 4pm ET bell. */
+export function airDate(iso) {
+  const { date, minutes } = etParts(new Date(iso));
+  return minutes >= 16 * 60 ? date : addDaysIso(date, -1);
+}
+
+function addDaysIso(iso, days) {
+  return new Date(Date.parse(iso) + days * 86400000).toISOString().slice(0, 10);
+}
+
+function decodeHistoryFile(h) {
+  const dates = [];
+  let cur = h.b;
+  for (let i = 0; i < h.d.length; i++) {
+    if (i > 0) cur = addDaysIso(cur, h.d[i]);
+    dates.push(cur);
+  }
+  return { dates, closes: h.c.slice(0, dates.length) };
+}
+
+/** Return since the close on/before `from`, using history plus the latest quote (same as the app). */
+export function moveSince(series, quote, from) {
+  if (!series?.dates.length) return null;
+  let { dates, closes } = series;
+  if (quote && Number.isFinite(quote.p) && quote.t) {
+    const qDate = etDate(new Date(quote.t * 1000));
+    const last = dates[dates.length - 1];
+    if (qDate === last) closes = [...closes.slice(0, -1), quote.p];
+    else if (qDate > last) {
+      dates = [...dates, qDate];
+      closes = [...closes, quote.p];
+    }
+  }
+  let i = -1;
+  for (let j = dates.length - 1; j >= 0; j--) {
+    if (dates[j] <= from) {
+      i = j;
+      break;
+    }
+  }
+  if (i < 0) return null;
+  if (i === dates.length - 1) return { fresh: true };
+  return { move: closes[closes.length - 1] / closes[i] - 1 };
+}
+
+const firstWord = (name) =>
+  String(name ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, " ")
+    .trim()
+    .split(/\s+/)[0] ?? "";
 
 // ---------- fallback: bootstrap cache from the deployed site ----------
 
@@ -458,18 +535,66 @@ async function runLive(universe) {
   const prevNews = await readJson(path.join(CACHE, "news.json"), { items: [] });
   const profiles = await readJson(path.join(CACHE, "profiles.json"), {});
   const heavy = await readJson(path.join(CACHE, "heavy.json"), {});
-  const symbols = [...universe.map.keys()];
   const now = new Date();
+
+  // 0) Mad Money headlines (official CNBC RSS) plus the stocks CNBC tagged in each article.
+  //    Runs first so newly tagged stocks get quotes and history in this same run.
+  let news = prevNews;
+  try {
+    const items = await fetchNews();
+    const prevByLink = new Map((prevNews.items ?? []).map((i) => [i.link, i]));
+    await pool(items, 3, async (item) => {
+      const old = prevByLink.get(item.link);
+      if (Array.isArray(old?.tk)) {
+        item.tk = old.tk.map(({ s, n, p }) => ({ s, n, ...(p ? { p } : {}) }));
+        return;
+      }
+      try {
+        item.tk = await fetchArticleTickers(item.link);
+      } catch (e) {
+        log("  tags failed:", e.message);
+      }
+      await sleep(200);
+    });
+    news = { asOf: now.toISOString(), items };
+    log(`news: ${items.length} headlines, ${items.filter((i) => i.tk?.length).length} with tagged stocks`);
+  } catch (e) {
+    log("news failed, keeping previous:", e.message);
+  }
+  for (const item of news.items ?? []) item.air = airDate(item.date);
+
+  // Tagged stocks stay covered for a year after CNBC last tagged them, so tracked calls keep scoring.
+  const tagged = { ...(prevNews.tagged ?? {}) };
+  for (const item of news.items ?? []) {
+    for (const tag of item.tk ?? []) {
+      const seen = item.date.slice(0, 10);
+      if (!tagged[tag.s] || tagged[tag.s].seen < seen) tagged[tag.s] = { n: tag.n || tagged[tag.s]?.n || "", seen };
+    }
+  }
+  const keepAfter = addDaysIso(etDate(now), -365);
+  for (const [s, v] of Object.entries(tagged)) if (v.seen < keepAfter) delete tagged[s];
+  for (const [s, v] of Object.entries(tagged)) if (!universe.map.has(s)) universe.map.set(s, { s, k: "s", tagged: v.n });
+  const symbols = [...universe.map.keys()];
 
   // 1) Quotes, every run.
   const quotes = await fetchQuotes(symbols);
+  // A CNBC symbol can mean a different security on Yahoo; skip clear name mismatches.
+  const mismatched = new Set();
+  for (const [s, info] of universe.map) {
+    const yName = quotes[s]?.longName ?? quotes[s]?.shortName;
+    if (info.tagged && yName && firstWord(info.tagged) !== firstWord(cleanName(yName))) {
+      log(`skipping ${s}: CNBC calls it "${info.tagged}", Yahoo "${yName}"`);
+      delete quotes[s];
+      mismatched.add(s);
+    }
+  }
   const liveCount = Object.keys(quotes).length;
   log(`quotes: ${liveCount}/${symbols.length}`);
   const quotesOk = liveCount >= symbols.length * 0.5;
 
   // 2) Heavy data, once per close (or when new tickers appear).
   const historyFiles = new Set((await readdir(path.join(CACHE, "history")).catch(() => [])).map((f) => f));
-  const knownSymbols = symbols.filter((s) => quotes[s] || prevMarket.t[s]);
+  const knownSymbols = symbols.filter((s) => !mismatched.has(s) && (quotes[s] || prevMarket.t[s]));
   // Money market funds sit at $1 and have no chart history.
   const historySymbols = knownSymbols.filter((s) => (KIND[quotes[s]?.quoteType] ?? prevMarket.t[s]?.k) !== "m");
   const missingHistory = historySymbols.filter((s) => !historyFiles.has(fileFor(s)));
@@ -556,19 +681,11 @@ async function runLive(universe) {
     if (fundsStale && ok >= targets.length * 0.5) heavy.fundsAt = now.toISOString();
   }
 
-  // 3) Mad Money headlines (official CNBC RSS: headline, date, link only).
-  let news = prevNews;
-  try {
-    news = { asOf: now.toISOString(), items: await fetchNews() };
-    log(`news: ${news.items.length} headlines`);
-  } catch (e) {
-    log("news failed, keeping previous:", e.message);
-  }
-
-  // 4) Assemble market.json.
+  // 3) Assemble market.json.
   const t = {};
   let maxQuoteTime = 0;
   for (const s of symbols) {
+    if (mismatched.has(s)) continue;
     const q = quotes[s];
     const prev = prevMarket.t[s];
     const info = universe.map.get(s);
@@ -604,6 +721,24 @@ async function runLive(universe) {
   if (!Object.keys(t).length) throw new Error("no quotes and no cached quotes");
   // "Prices as of" follows the S&P 500 ETF's regular-session quote time.
   if (t.SPY?.t) maxQuoteTime = t.SPY.t;
+
+  // 4) How each tagged stock has moved since its segment aired.
+  const seriesCache = new Map();
+  for (const item of news.items ?? []) {
+    for (const tag of item.tk ?? []) {
+      delete tag.m;
+      delete tag.f;
+      if (!t[tag.s]) continue;
+      if (!seriesCache.has(tag.s)) {
+        const h = await readJson(path.join(CACHE, "history", fileFor(tag.s)));
+        seriesCache.set(tag.s, h ? decodeHistoryFile(h) : null);
+      }
+      const r = moveSince(seriesCache.get(tag.s), t[tag.s], item.air);
+      if (r?.fresh) tag.f = 1;
+      else if (Number.isFinite(r?.move)) tag.m = round(r.move, 6);
+    }
+  }
+  news.tagged = tagged;
 
   // 5) Persist cache, then write the output folder.
   const market = { asOf: now.toISOString(), t };

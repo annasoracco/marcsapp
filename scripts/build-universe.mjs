@@ -85,6 +85,9 @@ async function table(url) {
 const sp = await table("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies");
 const ndx = await table("https://en.wikipedia.org/wiki/List_of_NASDAQ-100_companies");
 const dow = await table("https://en.wikipedia.org/wiki/List_of_Dow_Jones_Industrial_Average_companies");
+// Mid and small caps, so more of the stocks in Marc's accounts are covered.
+const mid = await table("https://en.wikipedia.org/wiki/List_of_S%26P_400_companies");
+const small = await table("https://en.wikipedia.org/wiki/List_of_S%26P_600_companies");
 
 const stocks = new Map();
 function addStock(symbol, name, sector, group) {
@@ -99,8 +102,10 @@ function addStock(symbol, name, sector, group) {
 for (const r of sp) addStock(r["symbol"], r["security"], r["gics sector"], "sp500");
 for (const r of ndx) addStock(r["ticker"], r["company"], undefined, "ndx100");
 for (const r of dow) addStock(r["symbol"], r["company"], undefined, "dow30");
+for (const r of mid) addStock(r["symbol"], r["security"], r["gics sector"], "sp400");
+for (const r of small) addStock(r["symbol"], r["security"], r["gics sector"], "sp600");
 
-if (stocks.size < 500) throw new Error(`Only ${stocks.size} stocks parsed; refusing to write.`);
+if (stocks.size < 1400) throw new Error(`Only ${stocks.size} stocks parsed; refusing to write.`);
 
 const universe = {
   _about:

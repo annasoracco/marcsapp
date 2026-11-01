@@ -98,6 +98,31 @@ test("ticker detail, account editor, and More screen work", async ({ page }) => 
   await shot(page, "more.png", 1600);
 });
 
+test("a stock tagged in a Mad Money segment opens a prefilled call form", async ({ page }) => {
+  await page.goto("./");
+  await page.getByRole("button", { name: "Start fresh" }).click();
+  const show = page.locator("section", { has: page.getByRole("heading", { name: "From the show" }) });
+  await expect(show).toBeVisible({ timeout: 20_000 });
+  const tags = show.locator(".seg-tag");
+  test.skip((await tags.count()) === 0, "no tagged stocks in the current feed");
+  expect(await show.innerText()).not.toMatch(/\$\s?\d/);
+  await shot(page, "cramer-from-the-show.png", 1900);
+
+  const tag = tags.first();
+  const sym = (await tag.locator(".sym").innerText()).trim();
+  await tag.click();
+  const form = page.locator("#call-form");
+  await expect(form.getByRole("combobox", { name: "Ticker" })).toHaveValue(sym);
+  await expect(form.getByText("From the show.")).toBeVisible();
+  // Nothing is preselected: Marc says what the call was.
+  await expect(form.locator('input[name="action"]:checked')).toHaveCount(0);
+  await form.getByRole("button", { name: "Save call" }).click();
+  await expect(form.getByRole("alert")).toHaveText("Pick Buy, Sell, or Hold.");
+  await form.getByText("Sell", { exact: true }).click();
+  await form.getByRole("button", { name: "Save call" }).click();
+  await expect(page.locator(".call").first()).toContainText(sym);
+});
+
 test("logging a back-dated call computes a return versus SPY", async ({ page }) => {
   await page.goto("./");
   await page.getByRole("button", { name: "Start fresh" }).click();

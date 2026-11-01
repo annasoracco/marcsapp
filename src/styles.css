@@ -661,6 +661,39 @@ select:focus-visible {
 .news a {
   color: var(--text);
 }
+.news + .btn {
+  margin-top: 8px;
+}
+.seg-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.seg-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.seg-tag.primary {
+  border-color: var(--silver);
+}
+.seg-tag:hover {
+  background: #0b2a2e;
+}
+.seg-tag .sym {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
 
 /* bars */
 .bars li {

@@ -49,15 +49,33 @@ export interface FundsFile {
   f: Record<string, FundInfo>;
 }
 
+/** A stock CNBC tagged on a Mad Money article. */
+export interface NewsTag {
+  s: string;
+  /** CNBC's name for it */
+  n?: string;
+  /** 1 when CNBC marked it the article's main ("Primary") stock */
+  p?: 1;
+  /** move since the segment aired, as a fraction */
+  m?: number;
+  /** 1 when it aired after the latest close, so there's no move yet */
+  f?: 1;
+}
+
 export interface NewsItem {
   title: string;
   link: string;
   date: string;
+  /** trading day whose close the segment is measured from (YYYY-MM-DD, ET) */
+  air?: string;
+  tk?: NewsTag[];
 }
 
 export interface NewsFile {
   asOf: string | null;
   items: NewsItem[];
+  /** every stock CNBC tagged in the past year, with the last date it was tagged */
+  tagged?: Record<string, { n: string; seen: string }>;
 }
 
 export interface Meta {

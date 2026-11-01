@@ -10,9 +10,19 @@ import { longDate, pct, plural, shortDate, signedPct } from "../lib/format";
 import { tickerHref } from "../lib/route";
 import { TickerInput } from "../components/TickerInput";
 import { Card, Change, Empty } from "../components/ui";
-import type { MarketFile } from "../lib/marketTypes";
+import type { MarketFile, NewsItem } from "../lib/marketTypes";
 
 type Filter = "all" | CallAction;
+
+/** Starting values when logging a call from a Mad Money segment. */
+interface CallSeed {
+  symbol: string;
+  date: string;
+  segment?: string;
+  note?: string;
+}
+
+const SHOW_LIMIT = 6;
 
 export function CallsView({ prefill }: { prefill?: string }) {
   const { state, dispatch } = useStore();
@@ -20,8 +30,22 @@ export function CallsView({ prefill }: { prefill?: string }) {
   const market = ms.status === "ready" ? ms.data.market : undefined;
   const news = ms.status === "ready" ? ms.data.news.items : [];
   const [editing, setEditing] = useState<CramerCall | null>(null);
+  const [seed, setSeed] = useState<CallSeed | null>(null);
   const [formOpen, setFormOpen] = useState(!!prefill || state.calls.length === 0);
   const [filter, setFilter] = useState<Filter>("all");
+  const [showAllNews, setShowAllNews] = useState(false);
+
+  const logFrom = (item: NewsItem, symbol: string) => {
+    setEditing(null);
+    setSeed({
+      symbol,
+      date: item.air ?? item.date.slice(0, 10),
+      segment: /lightning round/i.test(item.title) ? "Lightning Round" : undefined,
+      note: item.title.slice(0, 280),
+    });
+    setFormOpen(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const symbols = useMemo(() => [...state.calls.map((c) => c.symbol), BENCHMARK], [state.calls]);
   const histories = useHistories(market ? symbols : []);
@@ -46,6 +70,7 @@ export function CallsView({ prefill }: { prefill?: string }) {
           aria-controls="call-form"
           onClick={() => {
             setEditing(null);
+            setSeed(null);
             setFormOpen((o) => !o);
           }}
         >
@@ -55,23 +80,51 @@ export function CallsView({ prefill }: { prefill?: string }) {
 
       {formOpen && (
         <CallForm
-          key={editing?.id ?? prefill ?? "new"}
+          key={editing?.id ?? (seed ? `${seed.symbol}-${seed.date}-${seed.note}` : (prefill ?? "new"))}
           market={market}
           initial={editing ?? undefined}
           prefill={prefill}
+          seed={editing ? undefined : (seed ?? undefined)}
           onSave={(call) => {
             dispatch({ type: "saveCall", call });
             setEditing(null);
+            setSeed(null);
             setFormOpen(false);
           }}
           onCancel={() => {
             setEditing(null);
+            setSeed(null);
             setFormOpen(false);
           }}
         />
       )}
 
       <Scorecard score={score} total={state.calls.length} />
+
+      {news.length > 0 && (
+        <Card id="news" title="From the show">
+          <ul className="news">
+            {(showAllNews ? news : news.slice(0, SHOW_LIMIT)).map((n) => (
+              <li key={n.link}>
+                <a href={n.link} target="_blank" rel="noopener noreferrer">
+                  {n.title}
+                </a>
+                <span className="muted"> · {shortDate(n.date.slice(0, 10))}</span>
+                {n.tk && n.tk.length > 0 && <SegmentTags item={n} market={market} onPick={(s) => logFrom(n, s)} />}
+              </li>
+            ))}
+          </ul>
+          {news.length > SHOW_LIMIT && (
+            <button type="button" className="btn ghost small" aria-expanded={showAllNews} onClick={() => setShowAllNews((v) => !v)}>
+              {showAllNews ? "Show fewer" : `Show all ${news.length} segments`}
+            </button>
+          )}
+          <p className="fine">
+            Headlines link to CNBC.com. Under each one are the stocks CNBC tagged in the article and how they’ve moved since
+            it aired. A tag isn’t a call: tap a stock to log what Cramer said about it.
+          </p>
+        </Card>
+      )}
 
       <Card
         id="calls"
@@ -114,23 +167,36 @@ export function CallsView({ prefill }: { prefill?: string }) {
           included, versus the S&amp;P 500 (SPY) over the same days.
         </p>
       </Card>
-
-      {news.length > 0 && (
-        <Card id="news" title="From the show">
-          <ul className="news">
-            {news.slice(0, 5).map((n) => (
-              <li key={n.link}>
-                <a href={n.link} target="_blank" rel="noopener noreferrer">
-                  {n.title}
-                </a>
-                <span className="muted"> · {shortDate(n.date.slice(0, 10))}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="fine">Headlines link to CNBC.com. Heard a call? Log it above.</p>
-        </Card>
-      )}
     </>
+  );
+}
+
+function SegmentTags({ item, market, onPick }: { item: NewsItem; market?: MarketFile; onPick: (symbol: string) => void }) {
+  const tags = [...(item.tk ?? [])].sort((a, b) => (b.p ?? 0) - (a.p ?? 0));
+  return (
+    <div className="seg-tags" role="group" aria-label="Stocks tagged in this segment">
+      {tags.map((t) => (
+        <button
+          key={t.s}
+          type="button"
+          className={`seg-tag${t.p ? " primary" : ""}`}
+          onClick={() => onPick(t.s)}
+          title={`${t.n || t.s}: log a call`}
+          aria-label={`Log a call on ${t.s}${
+            t.f ? ", aired after the last close" : t.m !== undefined ? `, ${signedPct(t.m)} since it aired` : ""
+          }`}
+        >
+          <span className="sym">{t.s}</span>
+          {t.f ? (
+            <span className="muted">new</span>
+          ) : t.m !== undefined ? (
+            <Change value={t.m} />
+          ) : (
+            <span className="muted">{market && !market.t[t.s] ? "no data" : "\u2014"}</span>
+          )}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -295,21 +361,24 @@ function CallForm({
   market,
   initial,
   prefill,
+  seed,
   onSave,
   onCancel,
 }: {
   market?: MarketFile;
   initial?: CramerCall;
   prefill?: string;
+  seed?: CallSeed;
   onSave: (c: CramerCall) => void;
   onCancel: () => void;
 }) {
   const today = todayET();
-  const [symbol, setSymbol] = useState(initial?.symbol ?? prefill ?? "");
-  const [action, setAction] = useState<CallAction>(initial?.action ?? "buy");
-  const [date, setDate] = useState(initial?.date ?? today);
-  const [segment, setSegment] = useState(initial?.segment ?? "");
-  const [note, setNote] = useState(initial?.note ?? "");
+  const [symbol, setSymbol] = useState(initial?.symbol ?? seed?.symbol ?? prefill ?? "");
+  // From a segment, nothing is preselected: Marc says what Cramer's call was.
+  const [action, setAction] = useState<CallAction | "">(initial?.action ?? (seed ? "" : "buy"));
+  const [date, setDate] = useState(initial?.date ?? seed?.date ?? today);
+  const [segment, setSegment] = useState(initial?.segment ?? seed?.segment ?? "");
+  const [note, setNote] = useState(initial?.note ?? seed?.note ?? "");
   const [error, setError] = useState("");
   const sym = normalizeSymbol(symbol);
   const covered = !!market?.t[sym];
@@ -317,6 +386,7 @@ function CallForm({
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!sym) return setError("Enter a ticker.");
+    if (!action) return setError("Pick Buy, Sell, or Hold.");
     if (!date || date > today) return setError("Pick a date on or before today.");
     onSave({
       id: initial?.id ?? newId(),
@@ -331,6 +401,7 @@ function CallForm({
 
   return (
     <form id="call-form" className="card form" onSubmit={submit} aria-label={initial ? "Edit call" : "Log a call"} noValidate>
+      {seed && !initial && <p className="hint">From the show. Check the details and pick what Cramer said.</p>}
       <TickerInput label="Ticker" value={symbol} onChange={setSymbol} market={market} placeholder="e.g. NVDA" required />
       {sym && market && !covered && <p className="hint warn">{sym} isn’t covered yet. You can still save it.</p>}
       <fieldset className="field">

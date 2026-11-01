@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Bird's Eye · Marc's market desk</title>
+    <meta name="description" content="Cramer calls, account overlap, and market moves. Percentages only, never dollars." />
+    <meta name="theme-color" content="#04272c" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Bird's Eye" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">
+        <img src="icons/icon.svg" alt="" width="36" height="36" />
+        <div>
+          <h1>Bird's Eye</h1>
+          <p class="sub" id="updated">Marc's market desk</p>
+        </div>
+      </div>
+      <button type="button" class="icon-btn" data-action="info" aria-label="About, privacy and backup">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" /><path d="M12 11v6M12 7.5v.01" /></svg>
+      </button>
+    </header>
+
+    <main id="main">
+      <section id="view-cramer" class="view" aria-label="Cramer desk"></section>
+      <section id="view-accounts" class="view" aria-label="My accounts" hidden></section>
+      <section id="view-market" class="view" aria-label="Market pulse" hidden></section>
+    </main>
+
+    <nav class="tabbar" aria-label="Sections">
+      <a href="#cramer" data-tab="cramer">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="2" /><path d="M8 21h8M12 17v4" /></svg>
+        <span>Cramer</span>
+      </a>
+      <a href="#accounts" data-tab="accounts">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5-9-5Z" /><path d="m3 13 9 5 9-5" /></svg>
+        <span>My accounts</span>
+      </a>
+      <a href="#market" data-tab="market">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8" /><path d="M15 7h6v6" /></svg>
+        <span>Market</span>
+      </a>
+    </nav>
+
+    <dialog id="sheet" class="sheet" aria-labelledby="sheet-title"></dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <noscript><p class="noscript">Bird's Eye needs JavaScript turned on.</p></noscript>
+  </body>
+</html>

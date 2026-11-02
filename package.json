@@ -2,7 +2,7 @@
   "name": "marcsapp",
   "private": true,
   "version": "1.0.0",
-  "description": "A percent-only market companion: Cramer call tracker, cross-account X-ray, today's moves, and an earnings radar.",
+  "description": "Marc vs. Cramer: pick Bull or Bear on the stocks from Mad Money and keep a season-long record against Jim Cramer. Percent moves only.",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -21,6 +21,7 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@fontsource-variable/public-sans": "^5.3.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

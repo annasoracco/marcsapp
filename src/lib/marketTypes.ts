@@ -30,25 +30,6 @@ export interface MarketFile {
   t: Record<string, TickerInfo>;
 }
 
-/** [symbol, weight fraction, name] */
-export type FundHolding = [string, number, string];
-
-export interface FundInfo {
-  /** stock, bond, cash, other portions (fractions) */
-  st: number;
-  bd: number;
-  ca: number;
-  ot: number;
-  h: FundHolding[];
-  /** sector weights of the equity sleeve (fractions) */
-  sec: Record<string, number>;
-}
-
-export interface FundsFile {
-  asOf: string;
-  f: Record<string, FundInfo>;
-}
-
 /** A stock CNBC tagged on a Mad Money article. */
 export interface NewsTag {
   s: string;
@@ -104,9 +85,17 @@ export interface Series {
   closes: number[];
 }
 
+/** Recent daily closes for every stock CNBC tagged lately, aligned to the S&P 500 trading days in `d`. */
+export interface RecentFile {
+  asOf: string;
+  d: string[];
+  c: Record<string, (number | null)[]>;
+}
+
 export interface MarketData {
   meta: Meta;
   market: MarketFile;
-  funds: FundsFile;
   news: NewsFile;
+  /** missing on sample data or older deploys */
+  recent?: RecentFile | null;
 }

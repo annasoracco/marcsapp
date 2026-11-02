@@ -3,21 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#004c54" />
-    <meta name="color-scheme" content="dark" />
-    <meta name="description" content="Track Cramer's calls, X-ray your accounts in percentages, and watch the market. No dollar amounts, ever." />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="color-scheme" content="light" />
+    <meta name="description" content="Marc vs. Cramer: pick Bull or Bear on the stocks from Mad Money and keep a season-long record against Jim Cramer. No dollar amounts, ever." />
     <meta name="referrer" content="no-referrer" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Marc's App" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Vs. Cramer" />
     <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <title>Marc's App</title>
+    <title>Marc vs. Cramer</title>
   </head>
   <body>
+    <!--
+      THESIS: A season-long head-to-head with Jim Cramer, kept like a pick sheet: a standings table on top and this
+      week's board of Mad Money stocks below. Refuses the dark multi-tab dashboard of earlier builds.
+      OWN-WORLD: White ground, near-black ink, midnight green (#004C54) as the single accent for Marc, silver for Cramer.
+      Public Sans (a Franklin Gothic descendant, the face of stock tables and sports pages) with tabular figures.
+      Hairline rules and heavy section rules, like a standings page; no cards, no costume.
+      STORY: Marc sees who's ahead, opens a stock from last night's show, confirms Cramer's call, makes his own, and
+      checks back as the week plays out.
+      FIRST VIEWPORT: Wordmark and quiet index line; the two-row standings table with large records; the board starts
+      below with the latest show night and its matchups. The primary action (Pick) sits on each matchup row.
+      FORM: Football pick sheet as a light finance app. Pick slip opens in place; no modals.
+    -->
     <div id="root"></div>
-    <noscript>Marc's App needs JavaScript turned on.</noscript>
+    <noscript>Marc vs. Cramer needs JavaScript turned on.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

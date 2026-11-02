@@ -30,6 +30,9 @@ const SAMPLE_ONLY = flag("sample");
 const FORCE_HEAVY = flag("force-heavy");
 const HISTORY_DAYS = 800; // a bit over 2 years so 2-year back-dated calls always resolve
 const FUNDS_MAX_AGE_DAYS = 6;
+// recent.json: this many trading days of closes for every stock CNBC tagged in the last RECENT_TAG_DAYS.
+const RECENT_DAYS = 60;
+const RECENT_TAG_DAYS = 90;
 const MAD_MONEY_RSS = "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15838459";
 const UA = "marcsapp-data-job/1.0 (+https://github.com/annasoracco/marcsapp)";
 
@@ -740,6 +743,29 @@ async function runLive(universe) {
   }
   news.tagged = tagged;
 
+  // 4b) Recent closes for every stock CNBC tagged lately, in one shared file. The app scores matchups
+  //     from this instead of requesting each picked ticker's own history file, so the host never sees
+  //     which stocks Marc picked.
+  let recent = null;
+  const spyHistory = await readJson(path.join(CACHE, "history", fileFor("SPY")));
+  if (spyHistory) {
+    const days = decodeHistoryFile(spyHistory).dates.slice(-RECENT_DAYS);
+    const recentSince = addDaysIso(etDate(now), -RECENT_TAG_DAYS);
+    const c = {};
+    for (const [s, v] of Object.entries(tagged)) {
+      if (v.seen < recentSince || !t[s]) continue;
+      if (!seriesCache.has(s)) {
+        const h = await readJson(path.join(CACHE, "history", fileFor(s)));
+        seriesCache.set(s, h ? decodeHistoryFile(h) : null);
+      }
+      const series = seriesCache.get(s);
+      if (!series) continue;
+      const byDate = new Map(series.dates.map((d, i) => [d, series.closes[i]]));
+      c[s] = days.map((d) => byDate.get(d) ?? null);
+    }
+    recent = { asOf: now.toISOString(), d: days, c };
+  }
+
   // 5) Persist cache, then write the output folder.
   const market = { asOf: now.toISOString(), t };
   const fundsOut = { asOf: heavy.fundsAt ?? now.toISOString(), f: funds };
@@ -765,6 +791,7 @@ async function runLive(universe) {
   await writeJson(path.join(OUT, "market.json"), market);
   await writeJson(path.join(OUT, "funds.json"), { ...fundsOut, f: usedFunds });
   await writeJson(path.join(OUT, "news.json"), news);
+  if (recent) await writeJson(path.join(OUT, "recent.json"), recent);
   const meta = {
     v: 1,
     source: quotesOk ? "live" : "cached",

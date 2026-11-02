@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { FundsFile, HistoryFile, MarketData, MarketFile, Meta, NewsFile, Series } from "./marketTypes";
+import type { HistoryFile, MarketData, MarketFile, Meta, NewsFile, RecentFile, Series } from "./marketTypes";
 import { decodeHistory, historyFileName, withQuote } from "./history";
 
 export type MarketState =
@@ -22,13 +22,13 @@ async function getJson<T>(path: string): Promise<T> {
 
 export const httpSource: MarketSource = {
   async loadData() {
-    const [meta, market, funds, news] = await Promise.all([
+    const [meta, market, news, recent] = await Promise.all([
       getJson<Meta>("meta.json"),
       getJson<MarketFile>("market.json"),
-      getJson<FundsFile>("funds.json").catch(() => ({ asOf: "", f: {} }) as FundsFile),
       getJson<NewsFile>("news.json").catch(() => ({ asOf: null, items: [] }) as NewsFile),
+      getJson<RecentFile>("recent.json").catch(() => null),
     ]);
-    return { meta, market, funds, news };
+    return { meta, market, news, recent };
   },
   async loadHistory(symbol) {
     try {

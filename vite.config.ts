@@ -15,16 +15,16 @@ export default defineConfig({
       includeAssets: ["icons/favicon.svg", "icons/apple-touch-icon.png"],
       manifest: {
         id: BASE,
-        name: "Marc's App",
-        short_name: "Marc's App",
-        description: "Track Cramer's calls, X-ray your accounts in percentages, and watch the market. No dollar amounts, ever.",
+        name: "Marc vs. Cramer",
+        short_name: "Vs. Cramer",
+        description: "Pick Bull or Bear on the stocks from Mad Money and keep a season-long record against Jim Cramer. No dollar amounts, ever.",
         start_url: BASE,
         scope: BASE,
         display: "standalone",
         orientation: "portrait",
-        background_color: "#0a0f10",
-        theme_color: "#004c54",
-        categories: ["finance", "productivity"],
+        background_color: "#ffffff",
+        theme_color: "#ffffff",
+        categories: ["finance", "sports"],
         icons: [
           { src: "icons/icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "icons/icon-512.png", sizes: "512x512", type: "image/png" },
@@ -32,14 +32,15 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,png,webmanifest}"],
+        globPatterns: ["**/*.{js,css,html,svg,png,webmanifest,woff2}"],
         globIgnores: ["**/data/**"],
         navigateFallback: `${BASE}index.html`,
         navigateFallbackDenylist: [/\/data\//],
         runtimeCaching: [
           {
             // Market data: try the network first so prices are fresh, fall back to the last copy offline.
-            urlPattern: ({ url }) => url.pathname.startsWith(`${BASE}data/`),
+            // A RegExp (not a function) so it survives being serialized into the generated service worker.
+            urlPattern: new RegExp(`${BASE}data/`),
             handler: "NetworkFirst",
             options: {
               cacheName: "market-data",

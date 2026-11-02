@@ -1,4 +1,4 @@
-import type { HistoryFile, Series, TickerInfo } from "./marketTypes";
+import type { HistoryFile, RecentFile, Series, TickerInfo } from "./marketTypes";
 import { addDays, etDateFromEpoch } from "./dates";
 
 export function normalizeSymbol(raw: string): string {
@@ -35,6 +35,21 @@ export function withQuote(series: Series, quote: TickerInfo | undefined): Series
   return { dates: [...series.dates, qDate], closes: [...series.closes, quote.p] };
 }
 
+/** One stock's series from the shared recent-closes file, or null if it isn't in there. */
+export function fromRecent(recent: RecentFile | null | undefined, symbol: string): Series | null {
+  const closes = recent?.c[symbol];
+  if (!recent || !closes) return null;
+  const out: Series = { dates: [], closes: [] };
+  recent.d.forEach((d, i) => {
+    const c = closes[i];
+    if (typeof c === "number" && Number.isFinite(c) && c > 0) {
+      out.dates.push(d);
+      out.closes.push(c);
+    }
+  });
+  return out.dates.length ? out : null;
+}
+
 /** Index of the last bar on or before `date`, or -1 if the series starts after it. */
 export function indexOnOrBefore(series: Series, date: string): number {
   let lo = 0;
@@ -52,33 +67,19 @@ export function indexOnOrBefore(series: Series, date: string): number {
   return ans;
 }
 
-/** Percent return (as a fraction) from the close on/before `from` to the latest bar. */
-export function returnSince(series: Series, from: string): number | null {
-  const i = indexOnOrBefore(series, from);
-  if (i < 0 || series.closes.length === 0) return null;
-  const base = series.closes[i];
-  const last = series.closes[series.closes.length - 1];
-  return base > 0 ? last / base - 1 : null;
-}
-
-/** Return over the trailing window ending at the latest bar. */
-export function trailingReturn(series: Series, days: number): number | null {
-  if (series.dates.length === 0) return null;
-  const end = series.dates[series.dates.length - 1];
-  const start = addDays(end, -days);
-  if (series.dates[0] > start) return null;
-  return returnSince(series, start);
-}
-
-export function ytdReturn(series: Series): number | null {
-  if (series.dates.length === 0) return null;
-  const end = series.dates[series.dates.length - 1];
-  const yearStart = `${Number(end.slice(0, 4)) - 1}-12-31`;
-  if (series.dates[0] > yearStart) return null;
-  return returnSince(series, yearStart);
-}
-
-export function sliceFrom(series: Series, from: string): Series {
-  const i = Math.max(0, indexOnOrBefore(series, from));
-  return { dates: series.dates.slice(i), closes: series.closes.slice(i) };
+/** Index of the first date on or after `date`, or -1 if every date is earlier. */
+export function indexOnOrAfter(dates: string[], date: string): number {
+  let lo = 0;
+  let hi = dates.length - 1;
+  let ans = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (dates[mid] >= date) {
+      ans = mid;
+      hi = mid - 1;
+    } else {
+      lo = mid + 1;
+    }
+  }
+  return ans;
 }

@@ -15,14 +15,14 @@ export default defineConfig({
       includeAssets: ["icons/favicon.svg", "icons/apple-touch-icon.png"],
       manifest: {
         id: BASE,
-        name: "Marc's App",
-        short_name: "Marc's App",
-        description: "Track Cramer's calls, X-ray your accounts in percentages, and watch the market. No dollar amounts, ever.",
+        name: "Bird's Eye",
+        short_name: "Bird's Eye",
+        description: "The market in plain English, a Cramer call scorecard, and a look inside any fund.",
         start_url: BASE,
         scope: BASE,
         display: "standalone",
         orientation: "portrait",
-        background_color: "#0a0f10",
+        background_color: "#07090a",
         theme_color: "#004c54",
         categories: ["finance", "productivity"],
         icons: [

@@ -1,50 +1,49 @@
-# Marc's App
+# Bird's Eye
 
-A phone-first market companion built for Marc: track Jim Cramer's calls against the market, X-ray all your accounts as one portfolio, and see what's moving today. **In percentages only. No dollars, ever.**
+A phone-first market companion built for Marc: the market in plain English, a scorecard for Jim Cramer's calls, and a look inside any fund. It never asks about your money.
 
-**Open it:** https://annasoracco.github.io/marcsapp/ (works in any phone browser, no login, no setup)
+**Open it:** https://annasoracco.github.io/marcsapp/ (any phone browser, no login, no setup)
 
 ## What it does
 
-- **Cramer Call Tracker (home).** Log a call in a few taps: ticker (with autocomplete), Buy / Sell / Hold, the date it aired (back-dating up to about 2 years works), an optional segment such as Lightning Round, and a note. Each call shows the stock's return since the call next to the S&P 500 (SPY) over the exact same days, and whether it beat the market. The scorecard shows the hit rate, average edge versus the S&P 500, best and worst calls, and an **Inverse Cramer** comparison (what you'd have gotten doing the opposite of every call).
-- **Account X-ray.** Add your accounts (Brokerage, Roth IRA, 401(k), HSA, and more). Enter holdings as ticker plus shares, or as a percent of the account (handy for 401(k) funds without tickers). See combined allocation, overlap (the same ticker in several accounts), concentration alerts (default 10%, adjustable), sector mix, asset type mix, per-account mix, and **true exposure**: what you really own once your ETFs' and index funds' top holdings are counted.
-- **Today.** Your portfolio's weighted move today (as a percent), major indices, an 11-sector heat map of the SPDR sector ETFs, your biggest movers, and a watchlist with "since you added it" returns.
-- **Earnings radar.** Upcoming earnings dates for your holdings, watchlist, and Cramer-call tickers.
-- **From the show.** The latest Mad Money headlines from CNBC's official RSS feed (headline, date, and a link back to CNBC.com only).
+- **Briefing (home).** One sentence on the day ("Rough day for tech. The S&P 500 fell 1.8%, dragged by Nvidia and Broadcom."), the S&P move with a 5-day or 1-month line, index chips, **what moved the market** (each S&P 500 company's weight by market cap times its move, as diverging bars with a plain summary), all 11 sectors in one sorted list, **big reports this week** (stocks you watch and Cramer tickers first, then the largest companies), and a **Cramer check**.
+- **Cramer.** Answers "Would following Cramer have beaten just buying the S&P?" with three bars (Follow Cramer, Do the opposite, Just buy the S&P) and a winner. Every term has a one-tap explainer. Calls are clean rows ("+7.6% vs market", Right or Wrong); tap one for a chart of the stock vs the S&P since the call, the note, Edit, and Delete. The floating + opens a sheet: pick a ticker, tap Buy, Sell, or Hold, pick Today, Yesterday, or a date.
+- **Heard it on the show? Track it.** Headlines from CNBC's official Mad Money RSS feed that name a covered company become one-tap suggestions. The sheet opens prefilled and Marc picks the call himself. Nothing is created automatically, article pages are never scraped, and every suggestion links to the CNBC story.
+- **Fund X-ray.** A research tool: look up any covered ETF or mutual fund (VOO, FXAIX, VTI, target-date funds, and more) to see what it is in plain English, its top holdings (target-date funds are opened up to show the companies inside), its sectors next to the S&P 500, and its performance over 1 month, this year, 1 year, and 2 years. **Compare** two or three funds to see how much they overlap ("VOO and FXAIX are almost the same fund: 98% overlap in their top holdings") and how they performed side by side.
+- **Markets.** Indices, sectors, stocks you're watching (returns today, 1M, YTD, or 1Y vs the S&P), a two-week earnings calendar, and search for any covered ticker.
 
-## The privacy promise
+## Privacy: it never asks about your money
 
-- **No dollars, ever.** Accounts and holdings are shown only as percentages. Share counts appear only inside the account edit form. A unit test (`src/test/privacy.test.tsx`) renders the screens with sample data and fails if a currency amount shows up.
-- **Your data stays on your phone.** Accounts, calls, and the watchlist are saved in your browser's local storage. There is no server, no login, no account linking, no analytics, and no trackers.
-- **Moving phones:** More > Export backup saves a file; Import backup on the new phone restores it.
+- There is **no** place to enter accounts, balances, holdings, share counts, or anything about what you own, and no brokerage import.
+- The only things saved, on your phone only, are the Cramer calls you log (public information), the tickers you choose to watch (no amounts), and a couple of display settings.
+- Older versions of the app could store accounts. On first load the new version **deletes** those old keys from the device and keeps only calls and the watchlist.
+- No logins, no analytics, no trackers. Backups (Settings > Export backup) contain only calls, the watchlist, and settings.
+- Tests enforce this: `src/test/privacy.test.tsx` fails if any screen has an input for shares, quantities, accounts, balances, or values, if a dollar amount appears outside a public per-share quote on a ticker page, if stored data has any field besides calls, watchlist, and settings, or if the migration leaves old account keys behind.
 
 ## Put it on your home screen
 
 - **iPhone (Safari):** open the link, tap **Share**, then **Add to Home Screen**.
 - **Android (Chrome):** open the link, tap the **⋮** menu, then **Install app**.
 
-It then opens full-screen like a regular app and works offline with the last prices it saw.
-
 ## How the market data works
 
 There is no server. A scheduled GitHub Actions workflow (`.github/workflows/deploy.yml`) fetches data and redeploys the static site to GitHub Pages:
 
-- **When:** about every 30 minutes on weekdays while US markets are open, once after the close, once in the evening (for show headlines), on every push to `main`, and on demand (Actions > Data and deploy > Run workflow).
+- **When:** about every 30 minutes on weekdays while US markets are open, once after the close, once in the evening (after Mad Money airs), on every push to `main`, and on demand (Actions > Data and deploy > Run workflow).
 - **Keeps running on its own:** GitHub pauses schedules in public repos after 60 days without activity. `.github/workflows/keepalive.yml` runs every Monday, re-enables the schedules, and adds an empty commit once `main` has been quiet for 40 days. It uses only the built-in token.
-- **What:** `scripts/fetch-data.mjs` uses the [`yahoo-finance2`](https://github.com/gadicc/yahoo-finance2) package (no API key) to write static JSON into the site:
-  - `data/market.json`: latest price, daily % change, type, sector, and next earnings date for every covered ticker (every run).
-  - `data/history/<TICKER>.json`: about 2 years of daily adjusted closes in a compact format, loaded on demand (refreshed once per trading day).
-  - `data/funds.json`: top holdings and sector weights for ETFs and mutual funds, used for look-through (refreshed weekly).
-  - `data/news.json`: Mad Money headlines from CNBC's official RSS feed, the stocks CNBC tagged in each article, and how each has moved since the segment aired. Tagged stocks stay covered for a year.
-- **Resilience:** a failed fetch never breaks the deploy. The job falls back to the last good data (GitHub Actions cache, then the currently deployed site's data). Only as a last resort does it publish made-up sample prices, and the app then shows a clear "sample market data" banner. The header always shows "Prices as of …".
+- **What:** `scripts/fetch-data.mjs` uses [`yahoo-finance2`](https://github.com/gadicc/yahoo-finance2) (no API key) to write static JSON:
+  - `data/market.json`: price, daily % change, type, sector, market cap (used only to weight S&P 500 contributions), S&P 500 membership, and next earnings date for every covered ticker (every run).
+  - `data/history/<TICKER>.json`: about 2 years of daily adjusted closes, loaded on demand (refreshed once per trading day).
+  - `data/funds.json`: published top holdings, sector weights, and stock/bond/cash split for ETFs and mutual funds (refreshed weekly).
+  - `data/news.json`: Mad Money headlines from CNBC's official RSS feed, plus the stocks CNBC tags on each article and their move since it aired (tagged stocks stay covered for a year). The app's Track suggestions use only the headline text and always link to CNBC.
+- **Resilience:** a failed fetch never breaks the deploy. The job falls back to the last good data (Actions cache, then the deployed site's data), and only as a last resort publishes clearly labelled sample prices.
 
 ### Coverage, and how to add tickers
 
-Covered: S&P 500, S&P MidCap 400, S&P SmallCap 600, Nasdaq-100, and Dow 30 stocks; stocks CNBC tags in Mad Money segments; major index, sector, bond, international, and thematic ETFs; common 401(k) mutual funds and Vanguard / Fidelity target-date funds; plus popular names in `config/extra-tickers.json` (about 1,800 tickers in total).
+About 1,800 tickers: S&P 500, S&P MidCap 400, S&P SmallCap 600, Nasdaq-100, and Dow 30 stocks; stocks CNBC tags in Mad Money segments; index, sector, bond, international, and thematic ETFs; common 401(k) mutual funds and Vanguard and Fidelity target-date funds; plus popular names in `config/extra-tickers.json`.
 
-- **To add a ticker:** edit [`config/extra-tickers.json`](config/extra-tickers.json), add the symbol to the `tickers` list (Yahoo style, for example `BRK-B`), and commit to `main`. The next run picks it up and detects the type, name, and sector automatically.
-- **To refresh index membership:** run `npm run universe` and commit `config/universe.json` (it reads the constituent tables on Wikipedia and the curated ETF and fund lists in `scripts/build-universe.mjs`).
-- Tickers outside the list show as "not covered yet". Percent-entered holdings still count in the X-ray.
+- **Add a ticker:** add it to the `tickers` list in [`config/extra-tickers.json`](config/extra-tickers.json) (Yahoo style, for example `BRK-B`) and commit to `main`.
+- **Refresh index membership:** run `npm run universe` and commit `config/universe.json`.
 
 ## Run it locally
 
@@ -52,18 +51,18 @@ Requires Node.js 22 or newer.
 
 ```bash
 npm ci
-npm run data          # fetch real market data into public/data (or: npm run data:sample)
+npm run data          # real market data into public/data (or: npm run data:sample)
 npm run dev           # http://localhost:5173/marcsapp/
-npm test              # unit tests, including the privacy guard
+npm test              # unit tests: insights, funds, headline matching, privacy guard, migration
 npm run lint
 npm run build         # static site in dist/
-npm run e2e           # Playwright smoke tests against a local preview (BASE_URL=... to test the live site)
+npm run e2e           # Playwright smoke tests at 320, 390, and 430px (BASE_URL=... for the live site)
 ```
 
 ## Hosting elsewhere
 
-It's a plain static site, so it can also be deployed to Vercel, Netlify, or Cloudflare Pages: build with `npm run build` after `npm run data`, and serve `dist/`. The app expects to live under `/marcsapp/`; change `BASE` in `vite.config.ts` to serve it from the root. You'd also want a scheduled job (like the GitHub workflow here) to keep the data fresh.
+It's a plain static site, so it also deploys to Vercel, Netlify, or Cloudflare Pages: run `npm run data` then `npm run build` and serve `dist/`. It expects to live under `/marcsapp/`; change `BASE` in `vite.config.ts` to serve it from the root. Keep a scheduled job like the GitHub workflow here so the data stays fresh.
 
 ## Not financial advice
 
-This is a fan-made tracker for fun and learning. Prices can be delayed or wrong. It is not affiliated with, endorsed by, or connected to CNBC, Mad Money, or Jim Cramer.
+A fan-made tracker for fun and learning. Prices can be delayed or wrong. Not affiliated with, endorsed by, or connected to CNBC, Mad Money, Jim Cramer, or any team.

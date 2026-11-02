@@ -1,4 +1,6 @@
-// The user's own data. Lives only in this browser's localStorage.
+// The only things Bird's Eye stores, all on this device: Cramer calls (public information),
+// a list of tickers Marc is watching (no amounts), and display settings.
+// There are deliberately no accounts, holdings, share counts, or balances anywhere.
 
 export type CallAction = "buy" | "sell" | "hold";
 
@@ -14,39 +16,6 @@ export interface CramerCall {
   createdAt: string;
 }
 
-export const ACCOUNT_TYPES = [
-  "Brokerage",
-  "Roth IRA",
-  "Traditional IRA",
-  "401(k)",
-  "403(b)",
-  "HSA",
-  "529",
-  "Other",
-] as const;
-export type AccountType = (typeof ACCOUNT_TYPES)[number];
-
-/**
- * A position inside an account.
- * - shares: a covered ticker plus a share count (only ever shown inside the edit form)
- * - pct: a ticker or a free-text fund name, as a percent of the account
- * - cash: cash or money market, as a percent of the account
- */
-export type Holding =
-  | { id: string; kind: "shares"; symbol: string; shares: number }
-  | { id: string; kind: "pct"; symbol: string; pct: number }
-  | { id: string; kind: "cash"; pct: number };
-
-export interface Account {
-  id: string;
-  name: string;
-  type: AccountType;
-  /** Optional: this account's share of the whole portfolio, in percent (0-100). */
-  portfolioPct?: number;
-  holdings: Holding[];
-  sample?: boolean;
-}
-
 export interface WatchItem {
   symbol: string;
   /** YYYY-MM-DD */
@@ -55,17 +24,17 @@ export interface WatchItem {
 }
 
 export interface Settings {
-  /** Concentration alert threshold, percent of portfolio. */
-  concentrationPct: number;
   installTipDismissed?: boolean;
 }
 
 export interface AppState {
-  version: 1;
+  version: 2;
   onboarded: boolean;
   sampleMode: boolean;
-  accounts: Account[];
   calls: CramerCall[];
   watchlist: WatchItem[];
   settings: Settings;
 }
+
+/** The complete set of top-level keys a stored state may have. Enforced by the privacy tests. */
+export const STATE_KEYS = ["version", "onboarded", "sampleMode", "calls", "watchlist", "settings"] as const;

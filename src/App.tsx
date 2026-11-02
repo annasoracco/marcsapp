@@ -1,111 +1,148 @@
 import { useEffect, useRef } from "react";
+import { ChartCandlestick, Megaphone, ScanEye, Settings as SettingsIcon, Sunrise, X } from "lucide-react";
 import { useStore } from "./lib/store";
 import { useMarket } from "./lib/market";
 import { useRoute } from "./lib/route";
-import { stamp } from "./lib/format";
+import { BrandMark } from "./components/BrandMark";
+import { Sheet, useUi } from "./components/Sheet";
 import { Onboarding } from "./views/Onboarding";
-import { CallsView } from "./views/CallsView";
-import { XrayView } from "./views/XrayView";
-import { AccountEdit } from "./views/AccountEdit";
-import { TodayView } from "./views/TodayView";
-import { EarningsView } from "./views/EarningsView";
-import { MoreView } from "./views/MoreView";
-import { TickerView } from "./views/TickerView";
-import { InstallTip } from "./components/InstallTip";
+import { Briefing } from "./views/Briefing";
+import { Cramer } from "./views/Cramer";
+import { Funds } from "./views/Funds";
+import { Markets } from "./views/Markets";
+import { Ticker } from "./views/Ticker";
+import { Settings } from "./views/Settings";
+import { AddCallSheet, CallSheet, ExplainSheet } from "./views/CallSheets";
 
 const TABS = [
-  { id: "calls", label: "Calls", icon: "M4 18h3V9H4v9Zm6.5 0h3V5h-3v13Zm6.5 0h3v-6h-3v6Z" },
-  { id: "xray", label: "X-ray", icon: "M12 3a9 9 0 1 0 9 9h-9V3Zm2 0v7h7a9 9 0 0 0-7-7Z" },
-  { id: "today", label: "Today", icon: "M3 17l5-5 4 4 8-8v4h2V4h-8v2h4l-6 6-4-4-7 7 2 2Z" },
-  { id: "earnings", label: "Earnings", icon: "M7 2v2H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2H7Zm-2 7h14v10H5V9Z" },
-  { id: "more", label: "More", icon: "M5 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z" },
-];
+  { id: "briefing", label: "Briefing", Icon: Sunrise },
+  { id: "cramer", label: "Cramer", Icon: Megaphone },
+  { id: "funds", label: "Fund X-ray", Icon: ScanEye },
+  { id: "markets", label: "Markets", Icon: ChartCandlestick },
+] as const;
+
+/** Old routes from earlier versions keep working. */
+const ALIASES: Record<string, string> = { "": "briefing", calls: "cramer", today: "markets", earnings: "markets", xray: "funds", more: "settings" };
 
 function Header() {
+  const { state } = useStore();
+  const { open } = useUi();
   const ms = useMarket();
-  const meta = ms.status === "ready" ? ms.data.meta : undefined;
+  const source = ms.status === "ready" ? ms.data.meta.source : undefined;
   return (
     <header className="top">
-      <a className="brand" href="#/calls">
-        <span className="brand-mark" aria-hidden="true" />
-        Marc’s App
+      <a className="brand" href="#/briefing" aria-label="Bird's Eye, go to Briefing">
+        <BrandMark size={28} />
+        <span className="brand-name">Bird's Eye</span>
       </a>
-      <span className="asof" aria-live="polite">
-        {meta ? `Prices as of ${stamp(meta.quotesAsOf)}` : ms.status === "error" ? "Prices unavailable" : "Loading prices…"}
-      </span>
+      <div className="top-actions">
+        {source === "sample" && (
+          <span className="status-pill static">
+            <span className="pill-face warn">Sample prices</span>
+          </span>
+        )}
+        {state.sampleMode && (
+          <button type="button" className="status-pill" onClick={() => open({ kind: "sample" })} aria-label="Sample data is on. Tap to clear it.">
+            <span className="pill-face">
+              Sample data <X size={12} aria-hidden="true" />
+            </span>
+          </button>
+        )}
+        <a className="icon-btn" href="#/settings" aria-label="Settings">
+          <SettingsIcon size={21} aria-hidden="true" />
+        </a>
+      </div>
     </header>
   );
 }
 
-function Banners() {
-  const { state, dispatch } = useStore();
-  const ms = useMarket();
-  return (
-    <>
-      {ms.status === "error" && (
-        <p className="banner bad" role="alert">
-          Can’t load market data right now. Check your connection and pull to refresh.
-        </p>
-      )}
-      {ms.status === "ready" && ms.data.meta.source === "sample" && (
-        <p className="banner warn" role="status">
-          Sample market data: live prices are temporarily unavailable, so the numbers below are made up.
-        </p>
-      )}
-      {ms.status === "ready" && ms.data.meta.source === "cached" && (
-        <p className="banner" role="status">
-          Showing the last good prices; the latest refresh didn’t come through.
-        </p>
-      )}
-      {state.sampleMode && (
-        <div className="banner sample" role="status">
-          <span>Showing made-up sample data</span>
-          <button type="button" className="btn ghost small" onClick={() => dispatch({ type: "clearSample" })}>
-            Clear samples
+function SheetHost() {
+  const { sheet, close } = useUi();
+  const { dispatch } = useStore();
+  if (!sheet) return null;
+  switch (sheet.kind) {
+    case "addCall":
+      return <AddCallSheet key={JSON.stringify(sheet)} {...sheet} />;
+    case "call":
+      return <CallSheet key={sheet.id} id={sheet.id} />;
+    case "explain":
+      return <ExplainSheet key={sheet.term} term={sheet.term} />;
+    case "sample":
+      return (
+        <Sheet title="Clear sample data?" onClose={close}>
+          <p className="lead">This removes the made-up calls and watched stocks. Anything you added yourself stays.</p>
+          <button
+            type="button"
+            className="btn primary block"
+            data-autofocus=""
+            onClick={() => {
+              dispatch({ type: "clearSample" });
+              close();
+            }}
+          >
+            Clear sample data
           </button>
-        </div>
-      )}
-    </>
-  );
+        </Sheet>
+      );
+    case "install":
+      return (
+        <Sheet title="Add to your Home Screen" onClose={close}>
+          <ul className="facts">
+            <li>
+              <strong>iPhone (Safari):</strong> tap the Share button, then Add to Home Screen.
+            </li>
+            <li>
+              <strong>Android (Chrome):</strong> tap the ⋮ menu, then Install app.
+            </li>
+          </ul>
+          <p className="lead">Bird's Eye then opens full screen like any app, and works offline with the last prices it saw.</p>
+          <button type="button" className="btn primary block" onClick={close} data-autofocus="">
+            Got it
+          </button>
+        </Sheet>
+      );
+  }
 }
 
 export function App() {
   const { state } = useStore();
-  const route = useRoute();
+  const raw = useRoute();
+  const route = raw.length === 0 || ALIASES[raw[0]] !== undefined ? [ALIASES[raw[0] ?? ""] ?? raw[0], ...raw.slice(1)] : raw;
   const mainRef = useRef<HTMLElement>(null);
-  const tab = route[0] === "t" ? "" : (route[0] ?? "calls");
   const routeKey = route.join("/");
+  const tab = route[0];
 
   useEffect(() => {
+    if (route[0] === "markets" && route[1] === "earnings") {
+      requestAnimationFrame(() => document.getElementById("earnings-section")?.scrollIntoView({ block: "start" }));
+      return;
+    }
     window.scrollTo(0, 0);
-    const h1 = mainRef.current?.querySelector<HTMLElement>("h1");
-    if (h1 && routeKey) h1.focus({ preventScroll: true });
+    if (raw.length) mainRef.current?.querySelector<HTMLElement>("h1")?.focus({ preventScroll: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeKey]);
 
   if (!state.onboarded) return <Onboarding />;
 
   let view;
-  switch (route[0]) {
-    case "xray":
-      view = route[1] === "account" && route[2] ? <AccountEdit key={route[2]} id={route[2]} /> : <XrayView />;
+  switch (tab) {
+    case "cramer":
+      view = <Cramer />;
       break;
-    case "today":
-      view = <TodayView />;
+    case "funds":
+      view = <Funds route={route} />;
       break;
-    case "earnings":
-      view = <EarningsView />;
+    case "markets":
+      view = <Markets />;
       break;
-    case "more":
-      view = <MoreView />;
+    case "settings":
+      view = <Settings />;
       break;
     case "t":
-      view = route[1] ? <TickerView key={route[1]} symbol={route[1]} /> : <CallsView />;
-      break;
-    case "calls":
-      view = <CallsView key={routeKey} prefill={route[1] === "new" ? route[2] : undefined} />;
+      view = route[1] ? <Ticker key={route[1]} symbol={route[1]} /> : <Markets />;
       break;
     default:
-      view = <CallsView />;
+      view = <Briefing />;
   }
 
   return (
@@ -114,22 +151,23 @@ export function App() {
         Skip to content
       </a>
       <Header />
-      <main id="main" ref={mainRef}>
-        <Banners />
-        {(tab === "calls" || tab === "") && route[0] !== "t" && <InstallTip />}
+      <main id="main" ref={mainRef} key={tab === "funds" ? "funds" : routeKey}>
         {view}
-        <p className="disclaimer">Not financial advice. Percentages only; your data stays on this phone.</p>
       </main>
       <nav className="tabs" aria-label="Main">
-        {TABS.map((t) => (
-          <a key={t.id} href={`#/${t.id}`} aria-current={tab === t.id || (t.id === "calls" && tab === "") ? "page" : undefined}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d={t.icon} />
-            </svg>
-            <span>{t.label}</span>
-          </a>
-        ))}
+        {TABS.map(({ id, label, Icon }) => {
+          const active = tab === id || (id === "markets" && tab === "t");
+          return (
+            <a key={id} href={`#/${id}`} aria-current={active ? "page" : undefined}>
+              <span className="tab-icon">
+                <Icon size={22} aria-hidden="true" strokeWidth={active ? 2.25 : 1.75} />
+              </span>
+              <span className="tab-label">{label}</span>
+            </a>
+          );
+        })}
       </nav>
+      <SheetHost />
     </div>
   );
 }

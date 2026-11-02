@@ -1,8 +1,11 @@
-import { ACCOUNT_TYPES, type Account, type AppState, type CramerCall, type Holding, type WatchItem } from "./types";
+import type { AppState, CramerCall, WatchItem } from "./types";
 import { isIsoDate } from "./dates";
 import { normalizeSymbol } from "./history";
 
-export const STORAGE_KEY = "marcsapp:v1";
+export const STORAGE_KEY = "birdseye:v2";
+/** Keys written by older versions. Removed on load so no account or holding data lingers. */
+export const LEGACY_KEYS = ["marcsapp:v1"];
+const LEGACY_PATTERN = /^(marcsapp|birdseye)[:_-].*(account|holding|portfolio|position)/i;
 
 export function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -10,56 +13,11 @@ export function newId(): string {
 }
 
 export function defaultState(): AppState {
-  return {
-    version: 1,
-    onboarded: false,
-    sampleMode: false,
-    accounts: [],
-    calls: [],
-    watchlist: [],
-    settings: { concentrationPct: 10 },
-  };
+  return { version: 2, onboarded: false, sampleMode: false, calls: [], watchlist: [], settings: {} };
 }
 
-const num = (x: unknown): number | undefined => (typeof x === "number" && Number.isFinite(x) ? x : undefined);
 const str = (x: unknown, max = 200): string | undefined => (typeof x === "string" ? x.slice(0, max) : undefined);
 const obj = (x: unknown): Record<string, unknown> => (x && typeof x === "object" ? (x as Record<string, unknown>) : {});
-
-function sanitizeHolding(raw: unknown): Holding | null {
-  const h = obj(raw);
-  const id = str(h.id, 80) || newId();
-  if (h.kind === "shares") {
-    const symbol = normalizeSymbol(str(h.symbol, 20) ?? "");
-    const shares = num(h.shares);
-    return symbol && shares !== undefined && shares >= 0 ? { id, kind: "shares", symbol, shares } : null;
-  }
-  if (h.kind === "pct") {
-    const symbol = (str(h.symbol, 80) ?? "").trim();
-    const pct = num(h.pct);
-    return symbol && pct !== undefined && pct >= 0 ? { id, kind: "pct", symbol, pct: Math.min(pct, 100) } : null;
-  }
-  if (h.kind === "cash") {
-    const pct = num(h.pct);
-    return pct !== undefined && pct >= 0 ? { id, kind: "cash", pct: Math.min(pct, 100) } : null;
-  }
-  return null;
-}
-
-function sanitizeAccount(raw: unknown): Account | null {
-  const a = obj(raw);
-  const name = (str(a.name, 60) ?? "").trim();
-  if (!name) return null;
-  const type = ACCOUNT_TYPES.includes(a.type as Account["type"]) ? (a.type as Account["type"]) : "Other";
-  const portfolioPct = num(a.portfolioPct);
-  return {
-    id: str(a.id, 80) || newId(),
-    name,
-    type,
-    portfolioPct: portfolioPct !== undefined && portfolioPct > 0 ? Math.min(portfolioPct, 100) : undefined,
-    holdings: (Array.isArray(a.holdings) ? a.holdings : []).map(sanitizeHolding).filter((h): h is Holding => !!h),
-    sample: a.sample === true || undefined,
-  };
-}
 
 function sanitizeCall(raw: unknown): CramerCall | null {
   const c = obj(raw);
@@ -85,32 +43,70 @@ function sanitizeWatch(raw: unknown): WatchItem | null {
   return { symbol, addedOn: isIsoDate(w.addedOn) ? w.addedOn : new Date().toISOString().slice(0, 10), sample: w.sample === true || undefined };
 }
 
+/**
+ * Builds a clean state from anything (older versions, backups, hand-edited files). Only calls,
+ * the watchlist, and settings survive; accounts, holdings, and every other field are dropped.
+ */
 export function sanitizeState(raw: unknown): AppState {
   const s = obj(raw);
-  const d = defaultState();
   const settings = obj(s.settings);
-  const conc = num(settings.concentrationPct);
   const watch = (Array.isArray(s.watchlist) ? s.watchlist : []).map(sanitizeWatch).filter((w): w is WatchItem => !!w);
+  const calls = (Array.isArray(s.calls) ? s.calls : []).map(sanitizeCall).filter((c): c is CramerCall => !!c);
   return {
-    version: 1,
+    version: 2,
     onboarded: s.onboarded === true,
-    sampleMode: s.sampleMode === true,
-    accounts: (Array.isArray(s.accounts) ? s.accounts : []).map(sanitizeAccount).filter((a): a is Account => !!a),
-    calls: (Array.isArray(s.calls) ? s.calls : []).map(sanitizeCall).filter((c): c is CramerCall => !!c),
+    sampleMode: s.sampleMode === true && (calls.some((c) => c.sample) || watch.some((w) => w.sample)),
+    calls,
     watchlist: watch.filter((w, i) => watch.findIndex((x) => x.symbol === w.symbol) === i),
-    settings: {
-      concentrationPct: conc !== undefined && conc >= 1 && conc <= 100 ? conc : d.settings.concentrationPct,
-      installTipDismissed: settings.installTipDismissed === true || undefined,
-    },
+    settings: settings.installTipDismissed === true ? { installTipDismissed: true } : {},
   };
 }
 
+/**
+ * Loads state and migrates older versions: their calls, watchlist, and settings are kept, and
+ * the old keys (which could hold accounts and holdings) are deleted from this device.
+ */
 export function loadState(storage: Storage | undefined = globalThis.localStorage): AppState {
   try {
-    const raw = storage?.getItem(STORAGE_KEY);
-    return raw ? sanitizeState(JSON.parse(raw)) : defaultState();
+    if (!storage) return defaultState();
+    const current = storage.getItem(STORAGE_KEY);
+    let state: AppState | null = null;
+    try {
+      state = current ? sanitizeState(JSON.parse(current)) : null;
+    } catch {
+      state = null;
+    }
+    for (const key of LEGACY_KEYS) {
+      const old = storage.getItem(key);
+      if (old === null) continue;
+      if (!state) {
+        try {
+          state = sanitizeState(JSON.parse(old));
+        } catch {
+          /* unreadable legacy data is simply dropped */
+        }
+      }
+      storage.removeItem(key);
+    }
+    for (let i = storage.length - 1; i >= 0; i--) {
+      const k = storage.key(i);
+      if (k && LEGACY_PATTERN.test(k)) storage.removeItem(k);
+    }
+    const result = state ?? defaultState();
+    storage.setItem(STORAGE_KEY, JSON.stringify(result));
+    return result;
   } catch {
     return defaultState();
+  }
+}
+
+/** Older builds never used IndexedDB, but delete any database under our names just in case. */
+export function purgeLegacyDatabases(): void {
+  try {
+    if (typeof indexedDB === "undefined") return;
+    for (const name of ["marcsapp", "marcsapp-accounts", "birdseye-accounts"]) indexedDB.deleteDatabase(name);
+  } catch {
+    /* not available */
   }
 }
 
@@ -118,31 +114,38 @@ export function saveState(state: AppState, storage: Storage | undefined = global
   try {
     storage?.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
-    /* storage full or blocked; nothing else we can do */
+    /* storage full or blocked */
   }
 }
 
 export interface Backup {
-  app: "marcsapp";
+  app: "birdseye";
   kind: "backup";
-  version: 1;
+  version: 2;
   exportedAt: string;
-  data: AppState;
+  data: Pick<AppState, "calls" | "watchlist" | "settings">;
 }
 
 export function makeBackup(state: AppState, now = new Date()): Backup {
-  return { app: "marcsapp", kind: "backup", version: 1, exportedAt: now.toISOString(), data: state };
+  return {
+    app: "birdseye",
+    kind: "backup",
+    version: 2,
+    exportedAt: now.toISOString(),
+    data: { calls: state.calls, watchlist: state.watchlist, settings: state.settings },
+  };
 }
 
+/** Accepts Bird's Eye backups and older Marc's App backups; only calls, watchlist, and settings are read. */
 export function parseBackup(text: string): AppState {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error("That file isn't a Marc's App backup (it isn't valid JSON).");
+    throw new Error("That file isn't a Bird's Eye backup (it isn't valid JSON).");
   }
   const b = obj(parsed);
-  if (b.app !== "marcsapp" || b.kind !== "backup") throw new Error("That file isn't a Marc's App backup.");
-  const state = sanitizeState(b.data);
-  return { ...state, onboarded: true };
+  if ((b.app !== "birdseye" && b.app !== "marcsapp") || b.kind !== "backup") throw new Error("That file isn't a Bird's Eye backup.");
+  const d = obj(b.data);
+  return { ...sanitizeState({ calls: d.calls, watchlist: d.watchlist, settings: d.settings }), onboarded: true };
 }

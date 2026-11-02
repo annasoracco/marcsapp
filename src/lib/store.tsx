@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from "react";
-import type { Account, AppState, CramerCall, Settings, WatchItem } from "./types";
-import { defaultState, loadState, saveState } from "./storage";
+import type { AppState, CramerCall, Settings, WatchItem } from "./types";
+import { defaultState, loadState, purgeLegacyDatabases, saveState } from "./storage";
 import { withSample, withoutSample } from "./sample";
 import { normalizeSymbol } from "./history";
 import { todayET } from "./dates";
@@ -9,8 +9,6 @@ type Action =
   | { type: "onboard"; sample: boolean }
   | { type: "saveCall"; call: CramerCall }
   | { type: "deleteCall"; id: string }
-  | { type: "saveAccount"; account: Account }
-  | { type: "deleteAccount"; id: string }
   | { type: "addWatch"; symbol: string }
   | { type: "removeWatch"; symbol: string }
   | { type: "settings"; patch: Partial<Settings> }
@@ -19,31 +17,19 @@ type Action =
   | { type: "replace"; state: AppState }
   | { type: "reset" };
 
-function upsert<T extends { id: string }>(list: T[], item: T): T[] {
-  const i = list.findIndex((x) => x.id === item.id);
-  if (i < 0) return [item, ...list];
-  const next = list.slice();
-  next[i] = item;
-  return next;
-}
-
 export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case "onboard":
       return action.sample ? withSample({ ...state, onboarded: true }) : { ...state, onboarded: true };
-    case "saveCall":
-      return { ...state, calls: upsert(state.calls, action.call) };
+    case "saveCall": {
+      const i = state.calls.findIndex((c) => c.id === action.call.id);
+      if (i < 0) return { ...state, calls: [action.call, ...state.calls] };
+      const calls = state.calls.slice();
+      calls[i] = action.call;
+      return { ...state, calls };
+    }
     case "deleteCall":
       return { ...state, calls: state.calls.filter((c) => c.id !== action.id) };
-    case "saveAccount": {
-      const exists = state.accounts.some((a) => a.id === action.account.id);
-      return {
-        ...state,
-        accounts: exists ? state.accounts.map((a) => (a.id === action.account.id ? action.account : a)) : [...state.accounts, action.account],
-      };
-    }
-    case "deleteAccount":
-      return { ...state, accounts: state.accounts.filter((a) => a.id !== action.id) };
     case "addWatch": {
       const symbol = normalizeSymbol(action.symbol);
       if (!symbol || state.watchlist.some((w) => w.symbol === symbol)) return state;
@@ -61,7 +47,7 @@ export function reducer(state: AppState, action: Action): AppState {
     case "replace":
       return action.state;
     case "reset":
-      return defaultState();
+      return { ...defaultState(), onboarded: true };
   }
 }
 
@@ -74,6 +60,9 @@ const StoreContext = createContext<StoreValue | null>(null);
 
 export function StoreProvider({ children, initial }: { children: ReactNode; initial?: AppState }) {
   const [state, dispatch] = useReducer(reducer, initial, (init) => init ?? loadState());
+  useEffect(() => {
+    purgeLegacyDatabases();
+  }, []);
   useEffect(() => {
     saveState(state);
   }, [state]);

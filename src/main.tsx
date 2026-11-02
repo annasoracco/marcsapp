@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { registerSW } from "virtual:pwa-register";
 import { StoreProvider } from "./lib/store";
 import { MarketProvider } from "./lib/market";
+import { UiProvider } from "./components/Sheet";
 import { App } from "./App";
 import "./styles.css";
 
@@ -12,7 +13,9 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <StoreProvider>
       <MarketProvider>
-        <App />
+        <UiProvider>
+          <App />
+        </UiProvider>
       </MarketProvider>
     </StoreProvider>
   </StrictMode>,

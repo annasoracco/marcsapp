@@ -1818,6 +1818,20 @@ input[type="search"]::-webkit-search-cancel-button {
 }
 
 @media (max-width: 359px) {
+  .perf {
+    font-size: 0.8125rem;
+    table-layout: fixed;
+  }
+  .perf th,
+  .perf td {
+    padding: 9px 2px;
+  }
+  .perf thead th {
+    font-size: 0.6875rem;
+  }
+  .perf .dot {
+    display: none;
+  }
   :root {
     --fs-hero: 2.5rem;
     --fs-1: 1.875rem;

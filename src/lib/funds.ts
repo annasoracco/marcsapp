@@ -184,7 +184,7 @@ export function fundSummary(symbol: string, market: MarketFile, funds: FundsFile
     out.push(`It's built from ${inside.subFunds.length} other funds; the biggest is ${big.name} at ${p0(big.weight)}.`);
   } else if (inside.companies.length) {
     const top = inside.companies[0];
-    out.push(`Its top ${inside.companies.length} holdings are ${p0(inside.shown)} of the fund, led by ${top.name} at ${p1(top.weight)}.`);
+    out.push(`Its top ${funds.f[symbol].h.length} holdings are ${p0(inside.shown)} of the fund, led by ${top.name} at ${p1(top.weight)}.`);
   }
   const sec = Object.entries(fundSectors(symbol, funds)).sort((a, b) => b[1] - a[1])[0];
   if (sec && stocks > 0.3) out.push(`${SECTOR_SHORT[sec[0]] ?? sec[0]} is its biggest sector, ${p0(sec[1])} of its stocks.`);

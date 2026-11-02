@@ -204,7 +204,7 @@ async function loadUniverse() {
   for (const s of extra.tickers ?? []) add(s, {});
   for (const s of u.mutualFunds) add(s, { k: "f" });
   for (const s of u.etfs) add(s, { k: "e" });
-  for (const s of u.stocks) add(s.s, { k: "s", n: s.n, sector: s.sector });
+  for (const s of u.stocks) add(s.s, { k: "s", n: s.n, sector: s.sector, g: s.g });
   for (const s of u.indices) add(s.s, { k: "i", n: s.n });
   return { map, sectorEtfs: u.sectorEtfs, indices: u.indices.map((i) => i.s) };
 }
@@ -477,6 +477,8 @@ async function writeSample(universe) {
     };
     if (entry.k === "s") {
       entry.sec = info.sector ?? sectors[Math.floor(rnd() * sectors.length)];
+      entry.mc = round(5 + rnd() * 500, 2);
+      if (info.g?.includes("sp500")) entry.sp = 1;
       entry.e = Math.round(now.getTime() / 1000) + Math.floor(rnd() * 60) * 86400;
       entry.est = 1;
     }
@@ -709,6 +711,8 @@ async function runLive(universe) {
     if (k === "s") {
       const sec = info.sector ?? profiles[s] ?? prev?.sec;
       if (sec) entry.sec = sec;
+      if (Number.isFinite(q.marketCap) && q.marketCap > 0) entry.mc = round(q.marketCap / 1e9, 2);
+      if (info.g?.includes("sp500")) entry.sp = 1;
       const e = epoch(q.earningsTimestamp ?? q.earningsTimestampStart);
       if (e) {
         entry.e = e;

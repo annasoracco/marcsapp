@@ -23,6 +23,10 @@ export interface TickerInfo {
   est?: 1;
   /** earnings call start, epoch seconds */
   ec?: number;
+  /** market capitalization in billions (public company size, used only as an index weight) */
+  mc?: number;
+  /** 1 when the stock is an S&P 500 member */
+  sp?: 1;
 }
 
 export interface MarketFile {

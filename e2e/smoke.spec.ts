@@ -38,6 +38,24 @@ test("make a pick: confirm Cramer's call, make yours, lock it in", async ({ page
   expect(saved).toContain(`"s":"${ticker}"`);
 });
 
+test("first run on a phone that already opened Marc's App or Bird's Eye", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("seeded")) return;
+    sessionStorage.setItem("seeded", "1");
+    localStorage.setItem("marcsapp:v1", JSON.stringify({ accounts: [{ name: "Brokerage", holdings: [{ s: "AAPL", shares: 100 }] }] }));
+    localStorage.setItem("birdseye:v2", JSON.stringify({ v: 2, calls: [{ s: "AMC", call: "sell", date: "2026-10-29" }] }));
+  });
+  await page.goto("./");
+  const standings = page.getByRole("table", { name: /Standings/ });
+  await expect(standings.getByRole("row", { name: /Marc/ })).toContainText("0\u20130");
+  await expect(page.getByText(/Your season starts with your first pick/)).toBeVisible();
+  const keys = await page.evaluate(() => Object.keys(localStorage).sort());
+  expect(keys).toEqual(["marc-vs-cramer:v1"]);
+  expect(errors).toEqual([]);
+});
+
 test("season page and stocks you own", async ({ page }) => {
   await page.goto("./");
   await page.getByPlaceholder("Add a ticker or company").fill("AAPL");

@@ -49,6 +49,15 @@ describe("saved state", () => {
     localStorage.setItem(STORAGE_KEY, "{not json");
     expect(loadState()).toEqual(EMPTY_STATE);
   });
+
+  it("starts clean on a phone that ran Marc's App or Bird's Eye, and removes their data", () => {
+    localStorage.setItem("marcsapp:v1", JSON.stringify({ accounts: [{ holdings: [{ s: "AAPL", shares: 100 }] }] }));
+    localStorage.setItem("birdseye:v2", JSON.stringify({ v: 2, calls: [{ s: "AMC", call: "sell" }] }));
+    localStorage.setItem("marcsapp-holdings-cache", "[1]");
+    localStorage.setItem("unrelated-key", "keep me");
+    expect(loadState()).toEqual(EMPTY_STATE);
+    expect(Object.keys(localStorage).sort()).toEqual(["unrelated-key"]);
+  });
 });
 
 describe("reducer", () => {

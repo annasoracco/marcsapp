@@ -7,6 +7,25 @@ import { normalizeSymbol } from "./history";
 
 export const STORAGE_KEY = "marc-vs-cramer:v1";
 const BACKUP_APP = "marc-vs-cramer";
+/**
+ * Earlier apps at this same address ("Marc's App" as marcsapp:*, "Bird's Eye" as birdseye:*) stored
+ * accounts, share counts, and holdings on the phone. Nothing reads them anymore, so they're removed.
+ */
+const LEGACY_KEY = /^(marcsapp|birdseye)[:_-]/i;
+
+export function clearLegacy(storage: Storage | undefined = globalThis.localStorage): void {
+  try {
+    if (!storage) return;
+    const old: string[] = [];
+    for (let i = 0; i < storage.length; i++) {
+      const k = storage.key(i);
+      if (k && k !== STORAGE_KEY && LEGACY_KEY.test(k)) old.push(k);
+    }
+    for (const k of old) storage.removeItem(k);
+  } catch {
+    /* storage blocked; nothing to clean */
+  }
+}
 
 export interface SavedState {
   games: Record<string, Game>;
@@ -70,6 +89,7 @@ export function parseState(raw: unknown): SavedState {
 }
 
 export function loadState(storage: Storage | undefined = globalThis.localStorage): SavedState {
+  clearLegacy(storage);
   try {
     const raw = storage?.getItem(STORAGE_KEY);
     return raw ? parseState(JSON.parse(raw)) : EMPTY_STATE;

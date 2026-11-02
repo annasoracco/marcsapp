@@ -18,6 +18,7 @@ A season-long head-to-head with Jim Cramer. Every stock Cramer covers on Mad Mon
 - **No dollars.** The app never asks for or shows balances, share counts, or dollar values. Tests fail if a currency amount appears.
 - **Marc's data stays on his phone.** Picks, Cramer's calls as Marc confirmed them, and owned tickers are saved in the browser's local storage. There is no server, no login, no analytics, and nothing is sent anywhere.
 - **Switching phones:** the footer has **Save a backup** and **Restore a backup**.
+- **Earlier versions:** data left on the phone by the apps that used to live at this address ("Marc's App" and "Bird's Eye", which stored accounts and share counts) is deleted the first time Marc vs. Cramer opens.
 
 ## Put it on the home screen
 

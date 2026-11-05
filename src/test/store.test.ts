@@ -45,6 +45,16 @@ describe("saved state", () => {
     expect(parseState({ games: { a: { ...g, link: "javascript:alert(1)" } } }).games[g.id].link).toBe("");
   });
 
+  it.each(["air", "kick"] as const)("drops picks with an impossible %s date", (field) => {
+    expect(parseState({ games: { a: { ...g, [field]: "2026-02-30" } } }).games).toEqual({});
+  });
+
+  it.each(["k", "e"] as const)("drops finals with an impossible %s date but keeps the pick", (field) => {
+    const fin = { k: "2026-10-30", e: "2026-11-06", sr: 0.1, br: 0 };
+    const parsed = parseState({ games: { a: { ...g, fin: { ...fin, [field]: "2026-02-30" } } } });
+    expect(parsed.games[g.id]).toEqual(g);
+  });
+
   it("survives broken storage", () => {
     localStorage.setItem(STORAGE_KEY, "{not json");
     expect(loadState()).toEqual(EMPTY_STATE);

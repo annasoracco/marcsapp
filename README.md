@@ -20,6 +20,17 @@ A season-long head-to-head with Jim Cramer. Every stock Cramer covers on Mad Mon
 - **Switching phones:** the footer has **Save a backup** and **Restore a backup**.
 - **Earlier versions:** data left on the phone by the apps that used to live at this address ("Marc's App" and "Bird's Eye", which stored accounts and share counts) is deleted the first time Marc vs. Cramer opens.
 
+## Back up and restore
+
+Keep your picks and stocks when you switch phones:
+
+1. On the old phone, scroll to the footer and tap **Save a backup**. Keep the downloaded `marc-vs-cramer-backup-YYYY-MM-DD.json` file somewhere safe, like Files or iCloud Drive.
+2. Transfer that JSON file to the new phone, or make it available there through your cloud drive.
+3. Open the app on the new phone, scroll to the footer, and tap **Restore a backup**. Select the JSON file.
+4. Check the pick and stock counts shown, then tap **Restore it** to confirm, or **Cancel** to leave the current data unchanged.
+
+**Restoring replaces, rather than merges, the picks and stocks saved in that browser.** If the destination already has data you want to keep, tap **Save a backup** there first and keep that file separate.
+
 ## Put it on the home screen
 
 - **iPhone (Safari):** open the link, tap **Share**, then **Add to Home Screen**.

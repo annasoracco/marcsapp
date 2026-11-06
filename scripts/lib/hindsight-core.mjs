@@ -145,7 +145,8 @@ export function bigMoves(dates, closes, up = 0.5, down = -0.4) {
  * Events (low/peak/trough/recovery days) are deduplicated into `ev`; per-start tuples are run-length encoded
  * over consecutive months because many start months share the same episode.
  * Per-start tuple: [peakEv, troughEv, recoveryEv], -1 when absent. N = nominal, R = real (CPI-adjusted).
- * Moments: [startDay, startClose, ...nominal tuple, ...real tuple], or 0 when unavailable.
+ * Moments: { [id]: [startDay, startClose, ...nominal tuple, ...real tuple] }, only for moments the asset traded through.
+ * ipo: the series starts at the asset's real first trading day (not at a data cut-off).
  * Dates are epoch days (days since 1970-01-01).
  */
 export function buildAsset({ info, dates, closes, cpiAt, moments }) {
@@ -174,11 +175,12 @@ export function buildAsset({ info, dates, closes, cpiAt, moments }) {
   };
   const N = rle(closes);
   const R = rle(real);
-  const mo = moments.map((m) => {
+  // Keyed by moment id (not position), so a data shard from another deploy can never mislabel a moment.
+  const mo = {};
+  for (const m of moments) {
     const s = momentStart(dates, m.date);
-    if (s < 0) return 0;
-    return [epochDay(dates[s]), sig10(closes[s]), ...tuple(closes, s), ...tuple(real, s)];
-  });
+    if (s >= 0) mo[m.id] = [epochDay(dates[s]), sig10(closes[s]), ...tuple(closes, s), ...tuple(real, s)];
+  }
   const day = (i) => (i < 0 ? "0" : Number(dates[i].slice(8, 10)).toString(36));
   const evOut = [...events.entries()].sort((a, b) => a[1] - b[1]).map(([i]) => [epochDay(dates[i]), sig10(closes[i])]);
   const last = dates.length - 1;
@@ -189,6 +191,7 @@ export function buildAsset({ info, dates, closes, cpiAt, moments }) {
     ...(info.a?.length ? { a: info.a } : {}),
     ...(info.pop ? { pop: 1 } : {}),
     ...(info.philly ? { philly: 1 } : {}),
+    ...(info.ipo ? { ipo: 1 } : {}),
     first: epochDay(dates[0]),
     m0,
     d: idx.map(day).join(""),

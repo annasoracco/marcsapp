@@ -8,6 +8,9 @@ const int = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 export const dayDate = (day: number) => new Date(day * 86400000);
 /** "Oct 1, 2007" */
 export const fmtDay = (day: number) => dayFmt.format(dayDate(day));
+const shortDayFmt = new Intl.DateTimeFormat("en-US", { timeZone: UTC, month: "short", day: "numeric" });
+/** "Nov 5" */
+export const fmtShortDay = (day: number) => shortDayFmt.format(dayDate(day));
 /** "Oct 2007" */
 export const fmtMonthOfDay = (day: number) => monthFmt.format(dayDate(day));
 /** Month index since Jan 1988 -> "Oct 2007" */

@@ -154,8 +154,8 @@ describe("buildAsset", () => {
   });
 
   it("starts moments at the first close on or after the event and skips ones before trading began", () => {
-    expect(asset.mo[0][0]).toBe(epochDay("2008-01-07"));
-    expect(asset.mo[1]).toBe(0);
+    expect(asset.mo.a[0]).toBe(epochDay("2008-01-07"));
+    expect(asset.mo.b).toBeUndefined();
   });
 
   it("records day-of-month anchors and the latest close", () => {

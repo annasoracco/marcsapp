@@ -1,42 +1,48 @@
-import { useLayoutEffect } from "react";
+import { useLayoutEffect, useState } from "react";
 import { fmtMoney } from "../lib/format";
 import { useCountUp } from "../lib/motion";
 
 /**
- * Fraunces ships proportional figures only. To keep the count-up from jittering, every digit sits in a
- * slot as wide as the widest digit, which is exactly what tabular figures do. The slot width is measured
- * from the real font once it has loaded.
+ * Natural widths (in em) of each character the hero number uses, measured from the real font.
+ * Fraunces has proportional figures only, so the count-up keeps every slot at the width of the FINAL
+ * digit in that position: at rest it reads exactly like proportional type (no gaps), and while counting
+ * nothing to the left of a changing digit moves.
  */
-export function useTabularDigits() {
+const FALLBACK: Record<string, number> = { $: 0.62, ",": 0.3, "0": 0.7, "1": 0.5, "2": 0.64, "3": 0.6, "4": 0.68, "5": 0.62, "6": 0.66, "7": 0.56, "8": 0.68, "9": 0.66 };
+
+export function useGlyphWidths(): Record<string, number> {
+  const [widths, setWidths] = useState(FALLBACK);
   useLayoutEffect(() => {
+    let alive = true;
     const measure = () => {
       const probe = document.createElement("span");
       probe.className = "hero-number probe";
       probe.setAttribute("aria-hidden", "true");
       document.body.appendChild(probe);
-      const size = parseFloat(getComputedStyle(probe).fontSize) || 64;
-      let max = 0;
-      for (const d of "0123456789") {
-        probe.textContent = d;
-        max = Math.max(max, probe.getBoundingClientRect().width);
+      const size = parseFloat(getComputedStyle(probe).fontSize) || 100;
+      const out: Record<string, number> = {};
+      for (const ch of Object.keys(FALLBACK)) {
+        probe.textContent = ch;
+        out[ch] = probe.getBoundingClientRect().width / size;
       }
       probe.remove();
-      if (max > 0) {
-        EM.digit = max / size;
-        document.documentElement.style.setProperty("--dw", `${EM.digit.toFixed(3)}em`);
-      }
+      if (alive && out["0"] > 0) setWidths(out);
     };
     measure();
     document.fonts?.ready.then(measure).catch(() => {});
+    return () => {
+      alive = false;
+    };
   }, []);
+  return widths;
 }
 
-const EM = { digit: 0.7, comma: 0.3, dollar: 0.62 };
-
 /** Font size (px) that fits the formatted number in `width`. */
-export function fitSize(text: string, width: number, max = 72, min = 34): number {
+export function fitSize(text: string, width: number, widths: Record<string, number> = FALLBACK, max = 72, min = 34): number {
   let em = 0;
-  for (const ch of text) em += /\d/.test(ch) ? EM.digit : ch === "," ? EM.comma : EM.dollar;
+  for (const ch of text) em += widths[ch] ?? 0.6;
+  // Letter-spacing is -0.02em per glyph.
+  em -= 0.02 * text.length;
   return Math.max(min, Math.min(max, Math.floor(width / em)));
 }
 
@@ -44,26 +50,50 @@ interface Props {
   value: number;
   instant: boolean;
   width: number;
-  className?: string;
 }
 
-export function HeroNumber({ value, instant, width, className = "" }: Props) {
+export function HeroNumber({ value, instant, width }: Props) {
+  const widths = useGlyphWidths();
   const shown = useCountUp(value, 650, instant);
   const final = fmtMoney(value);
-  const text = fmtMoney(shown);
+  const finalDigits = final.replace(/\D/g, "");
+  const cur = String(Math.max(0, Math.round(shown)));
+  if (cur.length > finalDigits.length) {
+    // Counting down from a longer number: it can't fit the final slots, so show it plainly for a moment.
+    return (
+      <p className="hero-number" style={{ fontSize: fitSize(final, width, widths) }}>
+        <span className="sr-only">{final}</span>
+        <span aria-hidden="true">{fmtMoney(shown)}</span>
+      </p>
+    );
+  }
+  // Right-align the counting value inside the final number's digit slots.
+  const padded = cur.padStart(finalDigits.length, " ");
+  let di = 0;
+  let seenDigit = false;
   return (
-    <p className={`hero-number ${className}`} style={{ fontSize: fitSize(final, width) }}>
+    <p className="hero-number" style={{ fontSize: fitSize(final, width, widths) }}>
       <span className="sr-only">{final}</span>
       <span aria-hidden="true">
-        {[...text].map((ch, i) =>
-          /\d/.test(ch) ? (
-            <span key={text.length - i} className="dg">
+        {[...final].map((ch, i) => {
+          if (/\d/.test(ch)) {
+            const d = padded[di++];
+            const blank = d === " ";
+            if (!blank) seenDigit = true;
+            return (
+              <span key={i} className={`dg${blank ? " is-blank" : ""}`} style={{ width: `${widths[ch]}em` }}>
+                {blank ? ch : d}
+              </span>
+            );
+          }
+          // Commas between not-yet-counted digits stay invisible too.
+          const hide = ch === "," && !seenDigit;
+          return (
+            <span key={i} className={hide ? "is-blank" : undefined}>
               {ch}
             </span>
-          ) : (
-            <span key={`s${text.length - i}`}>{ch}</span>
-          ),
-        )}
+          );
+        })}
       </span>
     </p>
   );

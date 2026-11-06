@@ -2,9 +2,9 @@
   "_howto": "The curated list of things Hindsight can time-travel with. Yahoo-style symbols (BRK-B, BTC-USD). n = the friendly name shown in the app, a = other names people search for (old names, old tickers), pop = shown in the picker before searching, philly = Philadelphia-area company. After adding a ticker, run `npm run data` and check the log for anomaly warnings; a suspicious one-day move quarantines the ticker until its date is listed under reviewedMoves with a reason.",
   "benchmark": "^SP500TR",
   "moments": [
-    {"id":"sb52","group":"eagles","name":"Super Bowl LII win","date":"2018-02-04"},
     {"id":"sb59","group":"eagles","name":"Super Bowl LIX win","date":"2025-02-09"},
     {"id":"nfc23","group":"eagles","name":"NFC title rout of the 49ers","date":"2023-01-29"},
+    {"id":"sb52","group":"eagles","name":"Super Bowl LII win","date":"2018-02-04"},
     {"id":"punt","group":"eagles","name":"Miracle at the New Meadowlands","date":"2010-12-19"},
     {"id":"4th26","group":"eagles","name":"4th and 26","date":"2004-01-11"},
     {"id":"chatgpt","group":"market","name":"ChatGPT launches","date":"2022-11-30"},

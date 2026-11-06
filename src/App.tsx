@@ -14,7 +14,6 @@ import { Footer } from "./components/Footer";
 import { HeldGame } from "./components/HeldGame";
 import type { Field } from "./components/Hero";
 import { Hero, shortName } from "./components/Hero";
-import { useTabularDigits } from "./components/HeroNumber";
 import { Moments } from "./components/Moments";
 import { ShareSheet } from "./components/ShareSheet";
 import { StockSheet } from "./components/StockSheet";
@@ -44,7 +43,6 @@ export function resolveInput(ds: Dataset, state: AppState, complete: boolean): S
 type SheetKind = Field | "share" | null;
 
 export function App() {
-  useTabularDigits();
   const { ds, complete, error } = useDataset();
   const [state, setState] = useState<AppState>(loadState);
   const [dragging, setDragging] = useState(false);
@@ -185,7 +183,13 @@ export function App() {
         <DateSheet ds={ds} symbol={asset.symbol} month={sm} onPick={(start) => update({ start })} onClose={() => setSheet(null)} />
       )}
       {sheet === "share" && (
-        <ShareSheet scenario={scenario} name={name} asOf={fmtDay(ds.asOfDay)} cpiMonth={cpiMonth} onClose={() => setSheet(null)} />
+        <ShareSheet
+          scenario={scenario}
+          name={name}
+          cpiMonth={cpiMonth}
+          isBenchmark={asset.symbol === ds.benchmark}
+          onClose={() => setSheet(null)}
+        />
       )}
     </>
   );

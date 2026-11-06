@@ -65,7 +65,7 @@ export function Hero({ ds, scenario: sc, moment, instant, drawKey, onEdit, onHel
             : sc.sp
               ? `The S&P 500 would have made it ${fmtMoney(sc.sp.value)}.`
               : null}
-          {sc.real ? ` ${fmtAmount(sc.amount)} back then is ${fmtMoney(sc.invested)} in ${cpiMonth} dollars, and every amount here is in ${cpiMonth} dollars.` : ""}
+          {sc.real ? ` In today’s dollars, your ${fmtAmount(sc.amount)} was ${fmtMoney(sc.invested)}.` : ""}
         </p>
       </div>
 
@@ -75,12 +75,13 @@ export function Hero({ ds, scenario: sc, moment, instant, drawKey, onEdit, onHel
         <p className="window">
           From the close on {fmtDay(sc.startDay)}
           {sc.firstTradingDay ? ` (${name}’s first day of trading)` : ""} to the close on {fmtDay(sc.endDay)}, dividends reinvested.
+          {sc.real ? ` Adjusted with CPI through ${cpiMonth}.` : ""}
           {moment ? ` ${moment.name}: ${fmtDay(isoToDay(moment.date))}. Hindsight uses the first close on or after it.` : ""}
           {spDiffers ? ` The S&P 500 is measured ${fmtDay(sc.sp!.startDay)} to ${fmtDay(sc.sp!.endDay)}, its nearest trading days.` : ""}
         </p>
         {sc.dd && sc.dd.pct <= -0.1 && (
           <button type="button" className="bridge" onClick={onHeld}>
-            It wasn’t a straight line. Would you have held?&nbsp;
+            Would you have held?&nbsp;
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M6 9l6 6 6-6" />
             </svg>

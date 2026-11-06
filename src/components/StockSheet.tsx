@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Asset, Dataset } from "../lib/data";
-import { fmtDay, fmtMonthOfDay } from "../lib/format";
+import { fmtMonthOfDay, fmtShortDay } from "../lib/format";
 import { isoToDay } from "../lib/data";
 import { Sheet } from "./Sheet";
 
@@ -45,14 +45,20 @@ const KIND_LABEL: Record<string, string> = { s: "Stock", e: "ETF", f: "Mutual fu
 
 export function StockSheet({ ds, current, complete, onPick, onClose }: Props) {
   const [q, setQ] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
   const all = useMemo(() => ds.order.map((s) => ds.assets.get(s)!).filter(Boolean), [ds]);
   const results = useMemo(() => searchAssets(all, q), [all, q]);
   const pick = (s: string) => {
     onPick(s);
     onClose();
   };
-  const mentions = ds.mentions.filter((m) => ds.assets.has(m.s));
+  // Group this week's mentions by the segment they came from, newest first.
+  const segments: { link: string; title: string; date: string; symbols: string[] }[] = [];
+  for (const m of ds.mentions) {
+    if (!ds.assets.has(m.s)) continue;
+    let seg = segments.find((x) => x.link === m.link);
+    if (!seg) segments.push((seg = { link: m.link, title: m.title, date: m.date, symbols: [] }));
+    seg.symbols.push(m.s);
+  }
   const popular = all.filter((a) => a.popular);
   const philly = all.filter((a) => a.philly);
   const rest = [...all].sort((a, b) => a.name.localeCompare(b.name));
@@ -71,11 +77,10 @@ export function StockSheet({ ds, current, complete, onPick, onClose }: Props) {
   );
 
   return (
-    <Sheet title="Pick an investment" onClose={onClose} initialFocus={inputRef}>
+    <Sheet title="Pick an investment" onClose={onClose}>
       <label className="field search">
         <span className="sr-only">Search stocks, funds, and crypto</span>
         <input
-          ref={inputRef}
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -99,24 +104,27 @@ export function StockSheet({ ds, current, complete, onPick, onClose }: Props) {
         )
       ) : (
         <>
-          {mentions.length > 0 && (
+          {segments.length > 0 && (
             <div className="m-group">
               <h3 className="group-h">Mentioned on Mad Money this week</h3>
-              <p className="quiet">Stocks CNBC tagged in this week’s Mad Money segments. Mentions, not picks.</p>
+              <p className="quiet">Stocks CNBC tagged in this week’s segments. Mentions, not picks.</p>
               <ul className="mentions">
-                {mentions.slice(0, 12).map((m) => {
-                  const a = ds.assets.get(m.s)!;
-                  return (
-                    <li key={m.s} className="mention">
-                      <button type="button" className={`chip${m.s === current ? " is-on" : ""}`} onClick={() => pick(m.s)}>
-                        {a.name.replace(/\s*\(.*\)$/, "")}
-                      </button>
-                      <a className="seg" href={m.link} target="_blank" rel="noopener noreferrer" aria-label={`Segment: ${m.title}`}>
-                        {fmtDay(isoToDay(m.date))} segment ↗
-                      </a>
-                    </li>
-                  );
-                })}
+                {segments.slice(0, 4).map((seg) => (
+                  <li key={seg.link} className="mention-group">
+                    <a className="seg" href={seg.link} target="_blank" rel="noopener noreferrer">
+                      <span>{fmtShortDay(isoToDay(seg.date))}</span>
+                      <span className="seg-title">{seg.title}</span>
+                      <span aria-hidden="true">↗</span>
+                    </a>
+                    <div className="chips">
+                      {seg.symbols.map((s) => (
+                        <button type="button" key={s} className={`chip${s === current ? " is-on" : ""}`} aria-pressed={s === current} onClick={() => pick(s)}>
+                          {ds.assets.get(s)!.name.replace(/\s*\(.*\)$/, "")}
+                        </button>
+                      ))}
+                    </div>
+                  </li>
+                ))}
               </ul>
             </div>
           )}

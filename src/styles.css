@@ -22,7 +22,6 @@
   --sans: "Geist Variable", -apple-system, "Segoe UI", system-ui, sans-serif;
   --dock-h: 116px;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --dw: 0.7em;
   color-scheme: light;
 }
 
@@ -175,8 +174,11 @@ button {
 
 .hero-number .dg {
   display: inline-block;
-  width: var(--dw);
   text-align: center;
+}
+
+.hero-number .is-blank {
+  visibility: hidden;
 }
 
 .hero-number.probe {
@@ -292,7 +294,8 @@ button {
   stroke-dasharray: 2 4;
 }
 
-.ch-axis {
+.ch-axis,
+.ch-base-label {
   font-size: 13px;
   fill: var(--muted);
 }
@@ -371,7 +374,7 @@ button {
 }
 
 .bridge {
-  display: block;
+  display: inline-block;
   min-height: 44px;
   margin-top: 4px;
   padding: 10px 0;
@@ -825,29 +828,40 @@ button {
   box-shadow: none;
 }
 
+/* Grouped by the segment that mentioned them, with one link to each segment. */
 .mentions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 14px;
-  margin: 10px 0 0;
+  margin: 4px 0 0;
   padding: 0;
   list-style: none;
 }
 
-.mention {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+.mention-group + .mention-group {
+  margin-top: 6px;
+}
+
+.mention-group .chips {
+  margin-top: 2px;
 }
 
 .seg {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  gap: 6px;
   min-height: 44px;
-  padding: 0 4px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
+  text-decoration: none;
+}
+
+.seg-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-2);
   text-decoration: underline;
+  text-decoration-color: var(--silver);
   text-underline-offset: 3px;
 }
 
@@ -891,6 +905,15 @@ button {
 .hg-guess text {
   font-size: 14px;
   font-weight: 600;
+}
+
+/* A paper halo keeps chart labels legible where they cross a line. */
+.hg text,
+.chart svg text {
+  paint-order: stroke;
+  stroke: var(--paper);
+  stroke-width: 4px;
+  stroke-linejoin: round;
 }
 
 .hg-peak text {
@@ -939,10 +962,23 @@ button {
 }
 
 .hg-rec {
+  animation: fade 300ms var(--ease-out) 1300ms both;
+}
+
+.hg-rec circle {
   fill: var(--paper);
   stroke: var(--green);
   stroke-width: 2;
-  animation: fade 300ms var(--ease-out) 1300ms both;
+}
+
+.hg-rec text {
+  font-size: 14px;
+  font-weight: 600;
+  fill: var(--green);
+}
+
+.held {
+  padding-bottom: 36px;
 }
 
 @keyframes pop {
@@ -990,9 +1026,9 @@ button {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: var(--ink);
+  background: var(--green);
   color: var(--paper);
-  box-shadow: 0 2px 8px rgb(21 24 26 / 0.25);
+  box-shadow: 0 2px 8px rgb(0 40 44 / 0.3);
 }
 
 .hg-handle svg {
@@ -1079,6 +1115,9 @@ button {
 /* ---------- dock ---------- */
 
 .dock {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
   position: fixed;
   left: 0;
   right: 0;
@@ -1197,17 +1236,17 @@ button {
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
-  padding: 0 2px;
 }
 
 .years::-webkit-scrollbar {
   display: none;
 }
 
+/* Exactly five whole years per view, so no year is ever cut off at the edge. */
 .year {
   position: relative;
-  flex: none;
-  min-width: 56px;
+  flex: 0 0 20%;
+  min-width: 0;
   height: 44px;
   padding: 0 6px;
   border: 0;
@@ -1225,8 +1264,8 @@ button {
 .year.is-on::after {
   content: "";
   position: absolute;
-  left: 15px;
-  right: 15px;
+  left: 30%;
+  right: 30%;
   bottom: 6px;
   height: 2px;
   border-radius: 1px;
@@ -1274,7 +1313,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px 8px 20px;
+  padding: 10px 16px 8px 20px;
   border-bottom: 1px solid var(--rule);
 }
 

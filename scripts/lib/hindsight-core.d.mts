@@ -17,7 +17,7 @@ export function startStats(x: number[], s: number): { peak: number; trough: numb
 export function cpiLookup(cpi: { m0: number; v: number[] }): (iso: string) => number;
 export function bigMoves(dates: string[], closes: number[], up?: number, down?: number): { date: string; move: number }[];
 export function buildAsset(args: {
-  info: { s: string; n: string; k: string; a?: string[]; pop?: number; philly?: number };
+  info: { s: string; n: string; k: string; a?: string[]; pop?: number; philly?: number; ipo?: boolean };
   dates: string[];
   closes: number[];
   cpiAt: (iso: string) => number;

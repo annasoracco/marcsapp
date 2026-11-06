@@ -24,7 +24,7 @@ export function useDataset(): DataState {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json() as Promise<RawDataset>;
     }).then((raw) => {
-      if (raw?.v !== 3) throw new Error("Unknown data format");
+      if (raw?.v !== 4) throw new Error("Unknown data format");
       return raw;
     });
     const more = fetch(MORE_URL).then((r) => {
@@ -38,8 +38,15 @@ export function useDataset(): DataState {
         if (!alive) return;
         const ds = decodeDataset(raw);
         setState({ ds, complete: false, error: false });
+        // The two shards must come from the same data run. If a cache hands back a mismatched second
+        // shard, ask once more past the HTTP cache; if it still doesn't match, use the first shard alone.
+        const same = (m: MoreShard) => m?.v === raw.v && m.generatedAt === raw.generatedAt;
         more
-          .then((m) => alive && setState({ ds: withMore(ds, raw.moments, m.t ?? []), complete: true, error: false }))
+          .then((m) => (same(m) ? m : fetch(MORE_URL, { cache: "reload" }).then((r) => r.json() as Promise<MoreShard>)))
+          .then((m) => {
+            if (!alive) return;
+            setState({ ds: same(m) ? withMore(ds, raw.moments, m.t ?? []) : ds, complete: true, error: false });
+          })
           .catch(() => alive && setState({ ds, complete: true, error: false }));
       })
       .catch(() => alive && setState({ ds: null, complete: true, error: true }));

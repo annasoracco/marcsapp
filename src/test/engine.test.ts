@@ -73,6 +73,34 @@ describe("computeScenario", () => {
     expect(monthRange(asset).min).toBe(mi(2008, 5));
   });
 
+  it("only claims a first day of trading for a real listing, not where the data starts", () => {
+    const sc = computeScenario(ds, { symbol: "UP", start: { kind: "month", m: mi(2006, 1) }, amount: 1000, real: false })!;
+    expect(sc.startDay).toBe(ds.assets.get("UP")!.firstDay);
+    expect(sc.firstTradingDay).toBe(false);
+  });
+
+  it("matches moments by id, ignoring ids the dataset doesn't know", () => {
+    const raw = structuredClone(syn.raw);
+    const up = raw.t.find((a) => a.s === "UP")!;
+    up.mo = { mystery: up.mo.sunday, ...up.mo };
+    const d2 = decodeDataset(raw);
+    expect([...d2.assets.get("UP")!.moments.keys()]).toEqual(["sunday"]);
+  });
+
+  it("only claims a first day of trading for a real listing, not where the data starts", () => {
+    const sc = computeScenario(ds, { symbol: "UP", start: { kind: "month", m: mi(2006, 1) }, amount: 1000, real: false })!;
+    expect(sc.startDay).toBe(ds.assets.get("UP")!.firstDay);
+    expect(sc.firstTradingDay).toBe(false);
+  });
+
+  it("matches moments by id, ignoring ids the dataset doesn't know", () => {
+    const raw = structuredClone(syn.raw);
+    const up = raw.t.find((a) => a.s === "UP")!;
+    up.mo = { mystery: up.mo.sunday, ...up.mo };
+    const d2 = decodeDataset(raw);
+    expect([...d2.assets.get("UP")!.moments.keys()]).toEqual(["sunday"]);
+  });
+
   it("uses Monday's close for a Sunday moment", () => {
     const sc = computeScenario(ds, { symbol: "UP", start: { kind: "moment", id: "sunday" }, amount: 1000, real: false })!;
     expect(sc.startDay).toBe(day("2008-02-04"));

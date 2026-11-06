@@ -58,8 +58,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,webmanifest,woff2}"],
-        // Only the Latin font files are precached; other scripts' subsets load on demand if ever needed.
-        globIgnores: ["**/data/**", "**/*-vietnamese-*", "**/*-cyrillic*", "**/*-latin-ext-*"],
+        globIgnores: ["**/data/**"],
         navigateFallback: `${BASE}index.html`,
         navigateFallbackDenylist: [/\/data\//],
         runtimeCaching: [

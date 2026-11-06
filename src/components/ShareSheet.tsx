@@ -6,8 +6,8 @@ import { Sheet } from "./Sheet";
 interface Props {
   scenario: Scenario;
   name: string;
-  asOf: string;
   cpiMonth: string;
+  isBenchmark: boolean;
   onClose: () => void;
 }
 
@@ -23,7 +23,7 @@ function download(url: string, filename: string) {
 }
 
 /** Previews the card, then shares it with the phone's share sheet or saves it as a file. All on the device. */
-export function ShareSheet({ scenario, name, asOf, cpiMonth, onClose }: Props) {
+export function ShareSheet({ scenario, name, cpiMonth, isBenchmark, onClose }: Props) {
   const [card, setCard] = useState<{ blob: Blob; url: string } | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
@@ -32,7 +32,7 @@ export function ShareSheet({ scenario, name, asOf, cpiMonth, onClose }: Props) {
   useEffect(() => {
     let url = "";
     let alive = true;
-    renderShareCard(scenario, { asOf, cpiMonth, name })
+    renderShareCard(scenario, { cpiMonth, name, isBenchmark })
       .then((blob) => {
         if (!alive) return;
         url = URL.createObjectURL(blob);
@@ -43,7 +43,7 @@ export function ShareSheet({ scenario, name, asOf, cpiMonth, onClose }: Props) {
       alive = false;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [scenario, asOf, cpiMonth, name]);
+  }, [scenario, cpiMonth, name, isBenchmark]);
 
   const file = useMemo(() => (card ? new File([card.blob], filename, { type: "image/png" }) : null), [card, filename]);
   const canShareFiles = !!file && typeof navigator.canShare === "function" && navigator.canShare({ files: [file] });

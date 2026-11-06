@@ -11,7 +11,7 @@ function mockFetch() {
   const fn = vi.fn(async (url: RequestInfo | URL) => {
     const u = String(url);
     calls.push(u);
-    const body = u.endsWith("hindsight-more.json") ? { v: 3, generatedAt: syn.raw.generatedAt, t: syn.more } : syn.raw;
+    const body = u.endsWith("hindsight-more.json") ? { v: 4, generatedAt: syn.raw.generatedAt, t: syn.more } : syn.raw;
     return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
   });
   vi.stubGlobal("fetch", fn);
@@ -74,6 +74,36 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show me how far it fell" }));
     expect(await screen.findByText(/from its high/)).toBeInTheDocument();
     expect(screen.getByText(/You guessed/)).toBeInTheDocument();
+  });
+
+  it("ignores a second shard from a different data run", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ symbol: "IPO", start: { kind: "month", m: 245 }, amount: 1000, real: false, saved: [] }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL) => {
+        const more = String(url).endsWith("hindsight-more.json");
+        const body = more ? { v: 4, generatedAt: "some other run", t: syn.more } : syn.raw;
+        return new Response(JSON.stringify(body), { status: 200 });
+      }),
+    );
+    render(<App />);
+    // The remembered stock only exists in the mismatched shard, so the app falls back to the S&P 500.
+    expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent(/into S&P 500/);
+  });
+
+  it("ignores a second shard from a different data run", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ symbol: "IPO", start: { kind: "month", m: 245 }, amount: 1000, real: false, saved: [] }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL) => {
+        const more = String(url).endsWith("hindsight-more.json");
+        const body = more ? { v: 4, generatedAt: "some other run", t: syn.more } : syn.raw;
+        return new Response(JSON.stringify(body), { status: 200 });
+      }),
+    );
+    render(<App />);
+    // The remembered stock only exists in the mismatched shard, so the app falls back to the S&P 500.
+    expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent(/into S&P 500/);
   });
 
   it("shows a calm message when prices can't load", async () => {

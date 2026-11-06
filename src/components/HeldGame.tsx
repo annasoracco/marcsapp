@@ -1,11 +1,11 @@
 import { useMemo, useRef, useState } from "react";
 import type { Point, Scenario } from "../lib/engine";
-import { fmtDay, fmtDuration, fmtMoney, fmtMonthOfDay, fmtPct } from "../lib/format";
+import { fmtDay, fmtDuration, fmtMoney, fmtMoneyShort, fmtMonthOfDay, fmtPct } from "../lib/format";
 import { useWidth } from "../lib/useWidth";
 import { pathFor } from "./Chart";
 import { shortName } from "./Hero";
 
-const H = 232;
+const H = 220;
 const TOP = 30;
 const BOTTOM = 26;
 const RAIL = 64;
@@ -141,8 +141,10 @@ function Game({ sc, name }: { sc: Scenario; name: string }) {
           {sc.invested < max && (
             <g className="hg-cost">
               <line x1={0} x2={plotW} y1={y(sc.invested)} y2={y(sc.invested)} />
-              <text x={plotW} y={y(sc.invested) + 16} textAnchor="end">
-                You put in {fmtMoney(sc.invested)}
+              {/* Keyed in the axis row, where no line can ever run through it. */}
+              <line x1={plotW / 2 - 56} x2={plotW / 2 - 36} y1={H - 9} y2={H - 9} />
+              <text x={plotW / 2 - 30} y={H - 4}>
+                {fmtMoneyShort(sc.invested)} put in
               </text>
             </g>
           )}
@@ -157,24 +159,37 @@ function Game({ sc, name }: { sc: Scenario; name: string }) {
           {peakPt(dd.peak)}
           <g className={`hg-guess${revealed ? " is-done" : ""}`}>
             <line x1={0} x2={plotW + RAIL - 30} y1={gy} y2={gy} />
-            <text x={plotW + RAIL - 34} y={gy - 9} textAnchor="end">
-              {revealed ? "Your guess " : ""}
-              {fmtPct(guess)} · {fmtMoney(guessValue)}
-            </text>
+            {!revealed && (
+              <text x={plotW + RAIL - 56} y={gy - 9} textAnchor="end">
+                {fmtPct(guess)} · {fmtMoney(guessValue)}
+              </text>
+            )}
           </g>
           {revealed && (
             <g className="hg-trough">
               <circle cx={x(dd.trough.day)} cy={y(dd.trough.value)} r={5} />
               <text
                 x={x(dd.trough.day)}
-                y={Math.abs(y(dd.trough.value) + 22 - gy) < 18 ? y(dd.trough.value) - 12 : Math.min(H - BOTTOM + 4, y(dd.trough.value) + 22)}
+                y={Math.min(H - BOTTOM + 4, y(dd.trough.value) + 24)}
                 textAnchor={x(dd.trough.day) > plotW * 0.6 ? "end" : x(dd.trough.day) < plotW * 0.3 ? "start" : "middle"}
               >
                 Bottom {fmtMoney(dd.trough.value)}
               </text>
             </g>
           )}
-          {revealed && dd.rec && <circle className="hg-rec" cx={x(dd.rec.day)} cy={y(dd.rec.value)} r={4} />}
+          {revealed && dd.rec && (
+            <g className="hg-rec">
+              <circle cx={x(dd.rec.day)} cy={y(dd.rec.value)} r={4} />
+              {/* Below and to the right of the dot, where the line has already climbed away. */}
+              <text
+                x={x(dd.rec.day) + 132 < plotW + RAIL ? x(dd.rec.day) + 10 : plotW + RAIL - 2}
+                y={y(dd.rec.value) + 22}
+                textAnchor={x(dd.rec.day) + 132 < plotW + RAIL ? "start" : "end"}
+              >
+                Back by {fmtMonthOfDay(dd.rec.day)}
+              </text>
+            </g>
+          )}
         </svg>
         {!revealed && (
           <div
@@ -224,18 +239,18 @@ function Game({ sc, name }: { sc: Scenario; name: string }) {
             You guessed {fmtPct(guess)}. {verdict}
           </p>
           <p className="hg-body">
-            {name} fell from {fmtMoney(dd.peak.value)} on {fmtDay(dd.peak.day)} to {fmtMoney(dd.trough.value)} on {fmtDay(dd.trough.day)},{" "}
-            {fmtDuration(dd.fallDays)} of watching it shrink.
-            {troughBelowCost ? ` At the bottom, your ${fmtMoney(sc.invested)} was worth ${fmtMoney(dd.trough.value)}.` : ""}
-          </p>
-          <p className="hg-body">
+            {name} fell {fmtPct(dd.pct, false)} over {fmtDuration(dd.fallDays)}, from {fmtMoney(dd.peak.value)} on {fmtDay(dd.peak.day)} to{" "}
+            {fmtMoney(dd.trough.value)} on {fmtDay(dd.trough.day)}
+            {troughBelowCost ? `, less than the ${fmtMoney(sc.invested)} you put in` : ""}.{" "}
             {dd.rec
-              ? `It took ${fmtDuration(dd.recDays!)} to climb back to ${fmtMoney(dd.peak.value)}, in ${fmtMonthOfDay(dd.rec.day)}.`
-              : `It still hasn’t climbed back. Today it’s ${fmtPct(dd.belowNow!, false)} below that high.`}
-            {dd.rec && sc.value > dd.trough.value
-              ? ` Holding on turned it into ${fmtMoney(sc.value)}. Selling at the bottom would have locked in ${fmtMoney(dd.trough.value)}.`
-              : ""}
+              ? `It took ${fmtDuration(dd.recDays!)} more to climb back to that high.`
+              : `It still hasn’t climbed back; today it’s ${fmtPct(dd.belowNow!, false)} below that high.`}
           </p>
+          {dd.rec && sc.value > dd.trough.value && (
+            <p className="hg-body">
+              Holding on turned it into <b>{fmtMoney(sc.value)}</b>. Selling at the bottom would have locked in {fmtMoney(dd.trough.value)}.
+            </p>
+          )}
           <button type="button" className="btn text" onClick={() => setRevealed(false)}>
             Guess again
           </button>

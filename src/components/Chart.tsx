@@ -69,7 +69,7 @@ export function Chart({ scenario, name, drawKey, height = 264 }: Props) {
   const spLast = sp?.[sp.length - 1];
   const baseY = y(scenario.invested);
   const labelYs = layoutLabels(
-    [{ y: y(last.value), h: 38 }, { y: spLast ? y(spLast.value) : -999, h: spLast ? 38 : 0 }, { y: baseY, h: 38 }],
+    [{ y: y(last.value), h: 38 }, { y: spLast ? y(spLast.value) : -999, h: spLast ? 38 : 0 }, { y: baseY, h: 22 }],
     TOP - 6,
     TOP + plotH + 8,
   );
@@ -121,21 +121,19 @@ export function Chart({ scenario, name, drawKey, height = 264 }: Props) {
           scenario.sp ? `; the S&P 500 grew to ${fmtMoney(scenario.sp.value)}` : ""
         }.`}
       >
-        <line className="ch-base" x1={0} x2={plotW} y1={baseY} y2={baseY} />
-        <g className="ch-label base" transform={`translate(${plotW + 10},${by})`}>
-          <text y={-3}>You put in</text>
-          <text className="v" y={14}>
-            {fmtMoneyShort(scenario.invested)}
-          </text>
-        </g>
+        {/* The dotted "put in" line runs into its own label in the gutter, so it can't be mistaken for the S&P's. */}
+        <polyline className="ch-base" points={`0,${baseY} ${plotW + 4},${baseY} ${plotW + 8},${by}`} fill="none" />
+        <text className="ch-base-label" x={plotW + 10} y={by + 4.5}>
+          {fmtMoneyShort(scenario.invested)} in
+        </text>
         {comp && <path key={`c${drawKey}`} className="ch-sp draw" d={comp} pathLength={1} />}
         <path key={`m${drawKey}`} className={`ch-main draw${loss ? " is-loss" : ""}`} d={main} pathLength={1} />
         <circle className="ch-start" cx={x(pts[0].day)} cy={y(pts[0].value)} r={3.5} />
         <circle className="ch-end" cx={x(last.day)} cy={y(last.value)} r={4.5} />
         {spLast && <circle className="ch-sp-end" cx={x(spLast.day)} cy={y(spLast.value)} r={3} />}
         <g className="ch-label main" transform={`translate(${plotW + 10},${ly})`}>
-          <text y={-3}>{name}</text>
-          <text className="v" y={14}>
+          <text y={-2}>{name}</text>
+          <text className="v" y={15}>
             {fmtMoneyShort(last.value)}
           </text>
         </g>

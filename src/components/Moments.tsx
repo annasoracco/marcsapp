@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Dataset, Moment } from "../lib/data";
+import type { Asset, Dataset, Moment } from "../lib/data";
 import { isoToDay, monthIndexOf } from "../lib/data";
 import type { ScenarioInput, StartRef } from "../lib/engine";
 import { clampMonth, computeScenario, monthRange } from "../lib/engine";
@@ -66,7 +66,7 @@ export function Moments({ ds, input, saved, onPick, onSave, onRemove }: Props) {
                       <span className="row-title">{m.name}</span>
                       <span className="row-sub">{fmtDay(isoToDay(m.date))}</span>
                     </span>
-                    {ms ? result(start) : <span className="m-na">{name} wasn’t trading yet</span>}
+                    {ms ? result(start) : <span className="m-na">{notYet(asset)}</span>}
                   </button>
                 </li>
               );
@@ -129,7 +129,7 @@ function YourDates({
                     <span className="row-title">{d.name}</span>
                     <span className="row-sub">{fmtMonthIndex(d.m)}</span>
                   </span>
-                  {ok ? result(start) : <span className="m-na">{shortName(asset.name)} wasn’t trading yet</span>}
+                  {ok ? result(start) : <span className="m-na">{notYet(asset)}</span>}
                 </button>
                 <button type="button" className="row-x" aria-label={`Remove ${d.name}`} onClick={() => onRemove(d.id)}>
                   <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -174,6 +174,11 @@ function YourDates({
       )}
     </div>
   );
+}
+
+/** Why a start isn't available: a real listing hadn't happened, or Hindsight's prices simply start later. */
+export function notYet(asset: Asset): string {
+  return asset.ipo ? `${shortName(asset.name)} wasn’t trading yet` : `Prices start ${fmtMonthIndex(monthRange(asset).min)}`;
 }
 
 const fmtIso = (mi: number) => `${1988 + Math.floor(mi / 12)}-${String((mi % 12) + 1).padStart(2, "0")}`;

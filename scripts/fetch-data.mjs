@@ -41,7 +41,7 @@ const OFFLINE = argv.includes("--offline");
 const FILE = "hindsight.json";
 const MORE_FILE = "hindsight-more.json";
 // Bump whenever the encoding changes, so an older "last good" copy is never republished in a format the app can't read.
-const FORMAT = 3;
+const FORMAT = 4;
 const HISTORY_FROM = new Date("1987-12-01T00:00:00Z");
 const CPI_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=CPIAUCSL";
 const MAD_MONEY_RSS = "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15838459";
@@ -337,10 +337,14 @@ export function assembleDataset({ config, tickers, series, cpi, now, mentions = 
   const cpiAt = cpiLookup(cpi);
   const moments = config.moments;
   const t = [];
+  if (!series.get(config.benchmark)) throw new Error("benchmark missing");
   for (const info of tickers) {
     const snap = series.get(info.s);
     if (!snap) continue;
-    const a = buildAsset({ info: { ...info, k: snap.k }, dates: snap.dates, closes: snap.closes, cpiAt, moments });
+    // Only a real listing date earns "first day of trading": not an index, not crypto (Yahoo's history just
+    // starts somewhere), and not a series trimmed with `from`.
+    const ipo = !info.from && ["s", "e", "f"].includes(snap.k) && snap.dates[0] > "1988-01-04";
+    const a = buildAsset({ info: { ...info, k: snap.k, ipo }, dates: snap.dates, closes: snap.closes, cpiAt, moments });
     if (a) t.push(a);
   }
   const bench = series.get(config.benchmark);
@@ -377,13 +381,23 @@ export function validateDataset(ds, prev, universeSize) {
 // ---------- main ----------
 
 async function main() {
+  // Any unexpected failure still republishes the last good data rather than leaving the deploy empty.
+  let prev = null;
+  try {
+    prev = await lastGood();
+    await build(prev);
+  } catch (e) {
+    await publishFallback(prev, `unexpected error: ${e?.stack ?? e}`);
+  }
+}
+
+async function build(prev) {
   const now = new Date();
   const config = await readJson(path.join(ROOT, "config", "hindsight.json"));
   if (!config) throw new Error("config/hindsight.json missing");
   let tickers = config.tickers;
   if (ONLY) tickers = tickers.filter((t) => t.s === config.benchmark || ONLY.split(",").includes(t.s));
   const universe = new Set(tickers.map((t) => t.s));
-  const prev = await lastGood();
   log(`universe: ${tickers.length} assets; last good dataset: ${prev ? prev.asOf : "none"}`);
 
   // CPI
@@ -417,9 +431,8 @@ async function main() {
   });
   log(`daily series: ${fresh} fresh, ${series.size - fresh} cached, ${tickers.length - series.size} missing`);
 
-  const bench = series.get(config.benchmark);
-  if (!bench || !cpi) {
-    return publishFallback(prev, `no ${bench ? "CPI" : "benchmark"} data`);
+  if (!series.get(config.benchmark) || !cpi) {
+    return publishFallback(prev, `no ${cpi ? "benchmark" : "CPI"} data`);
   }
 
   // Quarantine assets with one-day moves nobody has reviewed (usually a broken spinoff adjustment).
@@ -442,10 +455,14 @@ async function main() {
     }
   }
 
+  if (!series.get(config.benchmark)) return publishFallback(prev, "the S&P 500 series was quarantined");
+
+  // Offline rebuilds reuse the cached mentions even from an older data format (development only).
+  const cachedMentions = OFFLINE ? ((await readJson(path.join(CACHE, FILE)))?.mentions ?? prev?.mentions) : null;
   const mentions = OFFLINE
-    ? { asOf: prev?.mentions?.asOf ?? null, items: prev?.mentions?.items ?? [], tagged: prev?.mentions?.tagged ?? [] }
+    ? { asOf: cachedMentions?.asOf ?? null, items: cachedMentions?.items ?? [], tagged: cachedMentions?.tagged ?? [] }
     : await buildMentions(universe, prev?.mentions, now);
-  const benchLast = bench.dates.at(-1);
+  const benchLast = series.get(config.benchmark).dates.at(-1);
   const dataset = assembleDataset({ config, tickers, series, cpi, now, mentions, quarantined });
   const assets = dataset.t;
 

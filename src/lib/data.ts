@@ -12,6 +12,7 @@ export interface RawAsset {
   a?: string[];
   pop?: 1;
   philly?: 1;
+  ipo?: 1;
   first: number;
   m0: number;
   d: string;
@@ -20,7 +21,7 @@ export interface RawAsset {
   ev: [number, number][];
   N: Run[];
   R: Run[];
-  mo: (0 | number[])[];
+  mo: Record<string, number[]>;
 }
 
 export interface Moment {
@@ -38,7 +39,7 @@ export interface Mention {
 }
 
 export interface RawDataset {
-  v: 3;
+  v: 4;
   generatedAt: string;
   asOf: number;
   benchmark: string;
@@ -52,7 +53,7 @@ export interface RawDataset {
 }
 
 export interface MoreShard {
-  v: 3;
+  v: 4;
   generatedAt: string;
   t: RawAsset[];
 }
@@ -74,6 +75,8 @@ export interface Asset {
   aliases: string[];
   popular: boolean;
   philly: boolean;
+  /** firstDay is the asset's real first trading day (not a data cut-off). */
+  ipo: boolean;
   firstDay: number;
   /** Month index (months since Jan 1988) of the first monthly anchor. */
   m0: number;
@@ -145,15 +148,11 @@ export function decodeAsset(raw: RawAsset, moments: Moment[]): Asset {
     monthCloses[i] = Math.exp(acc / LOG_SCALE);
   }
   const mo = new Map<string, MomentStart>();
-  raw.mo.forEach((m, i) => {
-    if (!m || !moments[i]) return;
-    mo.set(moments[i].id, {
-      day: m[0],
-      close: m[1],
-      N: [m[2], m[3], m[4]],
-      R: [m[5], m[6], m[7]],
-    });
-  });
+  const known = new Set(moments.map((m) => m.id));
+  for (const [id, m] of Object.entries(raw.mo ?? {})) {
+    if (!known.has(id) || !Array.isArray(m)) continue;
+    mo.set(id, { day: m[0], close: m[1], N: [m[2], m[3], m[4]], R: [m[5], m[6], m[7]] });
+  }
   return {
     symbol: raw.s,
     name: raw.n,
@@ -161,6 +160,7 @@ export function decodeAsset(raw: RawAsset, moments: Moment[]): Asset {
     aliases: raw.a ?? [],
     popular: !!raw.pop,
     philly: !!raw.philly,
+    ipo: !!raw.ipo,
     firstDay: raw.first,
     m0: raw.m0,
     monthDays,

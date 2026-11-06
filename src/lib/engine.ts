@@ -215,7 +215,7 @@ export function computeScenario(ds: Dataset, input: ScenarioInput): Scenario | n
     start: input.start,
     startDay: st.day,
     startClose: st.close,
-    firstTradingDay: st.day === asset.firstDay,
+    firstTradingDay: asset.ipo && st.day === asset.firstDay,
     endDay: asset.endDay,
     endClose: asset.endClose,
     amount,

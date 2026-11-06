@@ -73,8 +73,8 @@ test("would you have held: guess, then the crash and recovery reveal", async ({ 
   await page.getByRole("button", { name: "Show me how far it fell" }).click();
   await expect(page.locator(".hg-big")).toContainText(/\d+%/);
   await expect(page.locator(".hg-verdict")).toContainText("You guessed \u221250%");
-  await expect(page.locator(".hg-body").first()).toContainText(/fell from \$[\d,]+ on \w{3} \d{1,2}, \d{4} to \$[\d,]+ on/);
-  await expect(page.locator(".hg-body").nth(1)).toContainText(/climb back|hasn’t climbed back/);
+  await expect(page.locator(".hg-body").first()).toContainText(/fell \d+% over .+, from \$[\d,]+ on \w{3} \d{1,2}, \d{4} to \$[\d,]+ on/);
+  await expect(page.locator(".hg-body").first()).toContainText(/climb back|hasn’t climbed back/);
 });
 
 test("moments start the clock at the first close on or after the day", async ({ page }) => {

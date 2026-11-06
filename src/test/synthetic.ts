@@ -47,7 +47,7 @@ export function makeSynthetic(): Synthetic {
   const mk = (s: string, n: string, k: string, dates: string[], closes: number[], extra = {}) =>
     buildAsset({ info: { s, n, k, ...extra }, dates, closes, cpiAt, moments: MOMENTS })!;
   const raw: RawDataset = {
-    v: 3,
+    v: 4,
     generatedAt: "2011-01-01T00:00:00Z",
     asOf: 20101231,
     benchmark: "^SP",
@@ -57,7 +57,7 @@ export function makeSynthetic(): Synthetic {
     t: [mk("^SP", "S&P 500", "i", spDates, spCloses, { pop: 1 }), mk("UP", "Upward Co (UP)", "s", upDates, upCloses, { pop: 1, a: ["Old Name", "OLD"] })],
     mentions: { asOf: "2010-12-30T00:00:00Z", items: [{ s: "UP", title: "Upward Co is a winner", link: "https://www.cnbc.com/x", date: "2010-12-29T23:00:00Z" }] },
   };
-  const more = [mk("IPO", "Newco", "s", ipoDates, ipoCloses), mk("BTC", "Coin", "c", btcDates, btcCloses)];
+  const more = [mk("IPO", "Newco", "s", ipoDates, ipoCloses, { ipo: true }), mk("BTC", "Coin", "c", btcDates, btcCloses)];
   return {
     raw,
     more,

@@ -125,6 +125,23 @@ test("reduced motion shows final values immediately", async ({ browser }) => {
   await ctx.close();
 });
 
+test("a phone with data from the earlier apps still opens straight into Hindsight", async ({ page }) => {
+  await page.goto("./");
+  await page.evaluate(() => {
+    localStorage.clear();
+    localStorage.setItem("marc-vs-cramer:v1", JSON.stringify({ v: 1, picks: [{ s: "AAPL", side: "bull", at: "2026-10-01" }], owned: ["MSFT"] }));
+    localStorage.setItem("marcsapp:v1", JSON.stringify({ accounts: [{ name: "IRA", balance: 123456 }] }));
+    localStorage.setItem("birdseye-watchlist", "[\"NVDA\"]");
+    localStorage.setItem("hindsight:v1", "{not json");
+  });
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("If you’d put $30,000 into Apple in Oct 2007");
+  await expect(page.locator(".hero-number .sr-only")).toHaveText(/^\$[\d,]+$/);
+  const keys = await page.evaluate(() => Object.keys(localStorage).sort());
+  // The two oldest apps stored account details, so they're removed; Marc vs. Cramer picks are left alone.
+  expect(keys).toEqual(["hindsight:v1", "marc-vs-cramer:v1"]);
+});
+
 test("every tap target is at least 44px", async ({ page }) => {
   await fresh(page);
   const check = async () =>

@@ -142,6 +142,16 @@ test("a phone with data from the earlier apps still opens straight into Hindsigh
   expect(keys).toEqual(["hindsight:v1", "marc-vs-cramer:v1"]);
 });
 
+test("the service worker takes over right away, so a new version never waits for the app to be closed", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "service worker control is checked in Chromium");
+  await page.goto("./");
+  // clientsClaim: the very first page load becomes controlled without a reload.
+  await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 15000 });
+  // skipWaiting must run on install, not only when a page asks (the older app's pages never ask).
+  const sw = await page.evaluate(async () => (await fetch("sw.js", { cache: "no-store" })).text());
+  expect(sw).toMatch(/"use strict";self\.skipWaiting\(\),\w+\.clientsClaim\(\)/);
+});
+
 test("every tap target is at least 44px", async ({ page }) => {
   await fresh(page);
   const check = async () =>

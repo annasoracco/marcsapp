@@ -57,6 +57,12 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Take over from the previous version as soon as a new one installs, then the registered page reloads.
+        // vite-plugin-pwa only sets these itself when it injects the registration script, and this app
+        // registers manually (injectRegister: false), so without them a phone kept showing the old app
+        // until every tab was closed.
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ["**/*.{js,css,html,svg,png,webmanifest,woff2}"],
         globIgnores: ["**/data/**"],
         navigateFallback: `${BASE}index.html`,

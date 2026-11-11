@@ -1,4 +1,6 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
+import { assembleDataset, snapshotFromChart } from "../fetch-data.mjs";
 import {
   bigMoves,
   buildAsset,
@@ -122,6 +124,44 @@ describe("bigMoves", () => {
   it("flags one-day jumps and crashes beyond the thresholds", () => {
     const m = bigMoves(["a", "b", "c", "d"], [10, 16, 9, 9.5]);
     expect(m.map((x) => x.date)).toEqual(["b", "c"]);
+  });
+});
+
+describe("snapshotFromChart", () => {
+  const chart = (from, n, firstTradeDate) => ({
+    meta: {
+      exchangeTimezoneName: "America/New_York",
+      instrumentType: "EQUITY",
+      firstTradeDate: new Date(`${firstTradeDate}T13:30:00Z`),
+      currentTradingPeriod: { regular: { end: new Date("2026-11-10T21:00:00Z") } },
+    },
+    quotes: days(from, n).map((d, i) => ({ date: new Date(`${d}T14:30:00Z`), adjclose: 100 + i })),
+  });
+
+  it("keeps a full history labeled with its own trading days", () => {
+    const snap = snapshotFromChart(chart("2017-09-28", 60, "2017-09-28"), "ROKU", new Date("2026-11-11T18:00:00Z"));
+    expect(snap.dates[0]).toBe("2017-09-28");
+    expect(snap.closes[0]).toBe(100);
+  });
+
+  it("rejects a history Yahoo cut short, so the last good copy is used instead", () => {
+    expect(() => snapshotFromChart(chart("2026-09-01", 50, "2017-09-28"), "ROKU", new Date("2026-11-11T18:00:00Z"))).toThrow(
+      /history starts 2026-09-01, but it has traded since 2017-09-28/,
+    );
+  });
+
+  it("drops today's bar until the session has closed", () => {
+    // 50 weekdays from Sep 1, 2026 end on Nov 9; the 51st is Nov 10, still trading at 1pm ET.
+    const snap = snapshotFromChart(chart("2026-09-01", 51, "2026-09-01"), "NEW", new Date("2026-11-10T18:00:00Z"));
+    expect(snap.dates.at(-1)).toBe("2026-11-09");
+  });
+});
+
+describe("assembleDataset", () => {
+  it("refuses to build without the S&P 500 series (the job then republishes the last good data)", () => {
+    const cpi = { m0: monthIndex("2000-01"), b: "2000-01", last: "2000-12", v: Array(12).fill(170), filled: [] };
+    const config = { benchmark: "^SPX", moments: [] };
+    expect(() => assembleDataset({ config, tickers: [], series: new Map(), cpi, now: new Date() })).toThrow("benchmark missing");
   });
 });
 

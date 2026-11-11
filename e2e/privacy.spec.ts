@@ -38,6 +38,15 @@ test("no third-party requests, and typed values never reach the network or the U
   await page.getByRole("button", { name: "Save date" }).click();
   await expect(page.getByRole("button", { name: /^Marc birthday May 1990/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Marc birthday May 1990/ })).toContainText("Nvidia wasn’t trading yet");
+  // Characters outside the bundled Latin fonts must not trigger a font download either.
+  await page.getByRole("button", { name: "Save a date" }).click();
+  await page.getByPlaceholder("My birthday").pressSequentially("Łukasz Dvořák Пётр", { delay: 20 });
+  await page.locator('input[type="month"]').fill("2001-03");
+  await page.getByRole("button", { name: "Save date" }).click();
+  await expect(page.getByRole("button", { name: /^Łukasz/ })).toBeVisible();
+  await page.getByRole("button", { name: /^Investment,/ }).click();
+  await page.getByRole("searchbox").pressSequentially("Ελλάδα", { delay: 20 });
+  await page.getByRole("button", { name: "Done" }).click();
 
   await expect(page.getByRole("heading", { level: 1 })).toContainText("$98,765 into Nvidia in Jun 2016");
   const typed = requests.slice(settled);

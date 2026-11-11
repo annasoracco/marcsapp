@@ -153,6 +153,15 @@ export function snapshotFromChart(res, symbol, now = new Date()) {
     if (!settled) dates = dates.slice(0, -1);
   }
   if (dates.length < 20) throw new Error(`chart ${symbol}: only ${dates.length} daily closes`);
+  // Yahoo sometimes returns just the last few days of a long history (Roku, Nov 2026). A series that starts
+  // well after the security's listed first trade date is treated as broken, so the last good copy is used.
+  const listed = toDate(meta.firstTradeDate);
+  if (listed && !Number.isNaN(listed.getTime())) {
+    const expected = Math.max(listed.getTime(), HISTORY_FROM.getTime());
+    if (Date.parse(`${dates[0]}T00:00:00Z`) - expected > 45 * 86400000) {
+      throw new Error(`chart ${symbol}: history starts ${dates[0]}, but it has traded since ${new Date(expected).toISOString().slice(0, 10)}`);
+    }
+  }
   return {
     s: symbol,
     k: kind,
